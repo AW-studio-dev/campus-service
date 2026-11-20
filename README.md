@@ -24,3 +24,35 @@ L'application repose sur des règles strictes pour garantir un écosystème sain
 *   **Frontend** : Flutter Web (Dart)
 *   **Backend & Base de données** : Supabase (PostgreSQL)
 *   **Hébergement** : Cloudflare Pages (prévu)
+
+## Configuration locale
+
+1. Copiez `.env.example` vers `.env`.
+2. Renseignez `SUPABASE_URL` et `SUPABASE_ANON_KEY` avec les valeurs du projet
+   Supabase. Utilisez uniquement la clé publique anon/publishable dans Flutter ;
+   ne placez jamais la clé `service_role` dans l’application.
+3. Lancez `flutter pub get`, puis `flutter run`.
+
+Le fichier `.env` est ignoré par Git. L’application initialise Supabase avant
+de démarrer et protège `/home` avec l’état de session Supabase.
+
+## Authentification et onboarding
+
+L’application comprend les écrans de bienvenue, connexion, inscription et
+complétion de profil en trois étapes. L’inscription transmet `display_name` aux
+métadonnées Auth afin que le trigger Supabase crée le profil. L’onboarding lit
+les tables de référence `wilayas`, `universities`, `study_levels`,
+`study_fields` et `interests`, puis met à jour le profil et les intérêts du
+compte connecté.
+
+Les avatars sont limités aux images JPEG/PNG de 5 Mo maximum et sont envoyés
+dans le bucket `avatars` avec un chemin unique par utilisateur.
+
+La confirmation par e-mail est activée dans Supabase : l’inscription conduit à
+une page de vérification par code OTP à six chiffres (template e-mail utilisant
+`{{ .Token }}`). L’application limite les renvois à un par minute et affiche un
+message adapté si Supabase renvoie `over_email_send_rate_limit`.
+
+Pour le développement et la production, configurez `Auth > URL Configuration`
+avec l’URL exacte de l’application et ajoutez-la aux URL de redirection
+autorisées. Configurez également un SMTP personnalisé pour l’envoi des codes.

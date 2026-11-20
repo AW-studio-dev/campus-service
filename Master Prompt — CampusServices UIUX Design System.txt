@@ -1,0 +1,1777 @@
+# RÔLE ET CONTEXTE
+Tu es un développeur Flutter Senior et Expert UI/UX. Je construis "CampusServices", une plateforme sociale et marketplace pour étudiants en Algérie. 
+Le backend (Supabase) est déjà 100% terminé. Tu dois coder le Frontend en Flutter Web/Mobile en respectant strictement le design system fourni et en connectant chaque page à la base de données Supabase existante.
+
+# ARCHITECTURE TECHNIQUE
+- **Framework** : Flutter (Dart)
+- **Gestion d'état** : Riverpod
+- **Navigation** : GoRouter (avec routes protégées pour les utilisateurs connectés)
+- **Backend** : Supabase (Auth, Database, Storage)
+- **Architecture des dossiers** : Clean Architecture (lib/core, lib/features, lib/shared)
+- **Responsive** : Utiliser `LayoutBuilder` et `MediaQuery` pour des layouts spécifiques Mobile (< 768px), Tablet (768-1199px) et Desktop (> 1200px).
+
+# DESIGN SYSTEM STRICT (À respecter absolument)
+- **Couleurs** : 
+  - Primaire (Navy) : `#0B1F45` (boutons, navigation active)
+  - Secondaire : `#163A70`
+  - Accent (Orange) : `#F28C28` (logo, highlights uniquement)
+  - Fond (Background) : `#F5F7FA`
+  - Surface (Cartes) : `#FFFFFF`
+  - Bordure : `#E5E7EB`
+  - Texte : Primaire `#172033`, Secondaire `#64748B`, Muted `#94A3B8`
+- **Typographie** : Police "Inter" pour l'interface, "Poppins" pour le logo. Titres 24-28px, Texte 14-15px.
+- **Composants** : 
+  - Cartes : Fond blanc, bordure 1px, radius 12-16px, ombre très subtile.
+  - Boutons : Navy, radius 8-10px, hauteur 44px.
+  - Inputs : Fond blanc, bordure fine, radius 8px, hauteur 48px.
+- **Style global** : Minimaliste, propre, inspiré de LinkedIn/Facebook. Pas de dégradés excessifs, pas de couleurs fluo, pas d'illustrations cartoon.
+
+# CONNEXION SUPABASE (Tables existantes)
+- **Auth** : `auth.users`, table `profiles` (pour les infos du user, déclenchée par trigger).
+- **Feed** : `posts`, `post_media`, `comments`, `reactions`, `follows`.
+- **Marketplace** : `businesses`, `business_services`, `business_products`, `categories`.
+- **Messagerie** : `conversations`, `conversation_members`, `messages`.
+- **Storage** : Buckets `avatars` (public), `business-media` (public), `post-media` (public).
+
+# PLAN DE TRAVAIL (GÉNÈRE LE CODE ÉTAPE PAR ÉTAPE)
+
+Je vais te demander de générer le code phase par phase. Ne génère pas tout d'un coup, attends que je te dise "Passe à la phase suivante".
+
+## PHASE 1 : Setup & Design System
+1. Initialise le `main.dart` avec `Supabase.initialize` (en utilisant les variables d'environnement) et `ProviderScope`.
+2. Crée les fichiers de thème (`AppColors`, `AppTypography`, `AppTheme`).
+3. Crée les widgets réutilisables : `PrimaryButton`, `CustomTextField`, `SocialCard`, `AppAvatar`.
+4. Configure `GoRouter` avec une route de base et une redirection si l'utilisateur n'est pas connecté.
+
+## PHASE 2 : Authentification & Onboarding (Pages 1 à 5)
+1. **Page Splash** : Logo centré, fond blanc.
+2. **Page Landing (Welcome)** : Layout Desktop (2 colonnes : présentation + login/register) / Layout Mobile (vertical).
+3. **Page Login / Register** : Connexion via `supabase.auth.signInWithPassword` et inscription.
+4. **Onboarding** : Formulaire en 3 étapes (Step 1: Photo + Nom, Step 2: Wilaya + Université + Niveau, Step 3: Intérêts). Sauvegarde dans la table `profiles` via `supabase.from('profiles').update()`.
+
+## PHASE 3 : Layout Global & Navigation Responsive
+1. Crée le **Scaffold principal** qui gère le responsive :
+   - Mobile : `BottomNavigationBar` (Accueil, Recherche, Créer, Messages, Profil).
+   - Desktop : `Row` avec `LeftSidebar` (Menu), `Expanded` (Contenu central), `RightSidebar` (Suggestions).
+   - Tablet : Navigation Rail + Contenu central.
+2. Crée le menu "Créer" (Bottom Sheet sur mobile, Modal sur Desktop) avec les options : Publier un post, Demander de l'aide, Créer un Business.
+
+## PHASE 4 : Le Cœur Social (Pages 6, 9, 10, 14)
+1. **Home Feed (Page 6)** : 
+   - Barre de création de post en haut.
+   - Liste des posts : Récupérer depuis `supabase.from('posts').select('*, profiles(*), post_media(*)')`.
+   - Afficher l'avatar, le nom, le texte, les images, et les boutons (J'aime, Commenter, Partager).
+2. **Create Post (Page 9)** : Formulaire d'ajout. Upload de l'image vers le bucket `post-media` via `supabase.storage.from('post-media').upload()`, puis insertion dans `posts` et `post_media`.
+3. **Help Request (Page 10)** : Formulaire similaire mais avec des champs spécifiques (Catégorie, Niveau) enregistrés dans `service_requests`.
+4. **Profil Personnel (Page 14)** : 
+   - Bannière, Avatar, Bio, Stats (Abonnés, Posts).
+   - Onglets : Posts, À propos, Favoris.
+   - Bouton "Modifier mon profil" si c'est mon profil, sinon bouton "Suivre" (table `follows`) et "Message".
+
+## PHASE 5 : Business & Marketplace (Pages 16, 17, 18, 19, 20, 21)
+1. **Marketplace (Page 16)** : Grille de cartes de produits/services. Filtres par catégories (données de la table `categories`).
+2. **Détail Produit/Service (Page 17)** : Image, prix, description, bouton "Contacter le vendeur" (qui crée une conversation dans `conversations` et redirige vers le chat).
+3. **Vitrine Business (Page 18)** : Bannière, Logo, Onglets (Produits, Services, Avis).
+4. **Créer un Business (Page 19)** : Formulaire avec sélection de catégorie (utiliser `DropdownButton` connecté à `categories`). Insertion dans `businesses` (attention: 1 seul business par user).
+5. **Dashboard Business (Page 20 & 21)** : Pour le propriétaire. Permet d'ajouter des services/produits (avec **1 seule image** uploadée vers `business-media`, enregistrée dans `cover_image_path`).
+
+## PHASE 6 : Messagerie & Notifications (Pages 11, 12, 13)
+1. **Notifications (Page 11)** : Liste depuis la table `notifications`, groupées par date.
+2. **Messages Inbox (Page 12)** : Liste des conversations depuis `conversations` et `conversation_members`.
+3. **Chat Privé (Page 13)** : 
+   - Affichage des messages depuis `messages`.
+   - Utiliser `Supabase Realtime` pour écouter les nouveaux messages en direct.
+   - Input d'envoi. Bulles de chat distinctes (Moi vs Autre).
+
+## PHASE 7 : Recherche & Paramètres (Pages 7, 15, 22, 23)
+1. **Recherche (Page 7)** : Barre de recherche globale (Full Text Search sur `posts`, `businesses`, `profiles`). Filtres avancés.
+2. **Edit Profile (Page 15)** : Formulaire de modification connecté à `profiles`.
+3. **Settings (Page 22)** : Page de paramètres responsive (Navigation à gauche sur Desktop, liste sur Mobile).
+4. **Reporting (Page 23)** : Modale de signalement qui insère dans la table `reports`.
+
+# CONSIGNES POUR LA GÉNÉRATION
+- Écris un code propre, commenté et séparé dans des fichiers distincts.
+- Pour chaque page, donne-moi la structure du dossier (ex: `lib/features/auth/presentation/login_page.dart`).
+- Assure-toi que chaque appel Supabase gère les erreurs (`try/catch`) et affiche un loader pendant le chargement.
+- **Commence par la PHASE 1.** Donne-moi les fichiers de configuration de base, le thème et les widgets partagés. Attends mon feu vert pour la suite.# RÔLE ET CONTEXTE
+Tu es un développeur Flutter Senior et Expert UI/UX. Je construis "CampusServices", une plateforme sociale et marketplace pour étudiants en Algérie. 
+Le backend (Supabase) est déjà 100% terminé. Tu dois coder le Frontend en Flutter Web/Mobile en respectant strictement le design system fourni et en connectant chaque page à la base de données Supabase existante.
+
+# ARCHITECTURE TECHNIQUE
+- **Framework** : Flutter (Dart)
+- **Gestion d'état** : Riverpod
+- **Navigation** : GoRouter (avec routes protégées pour les utilisateurs connectés)
+- **Backend** : Supabase (Auth, Database, Storage)
+- **Architecture des dossiers** : Clean Architecture (lib/core, lib/features, lib/shared)
+- **Responsive** : Utiliser `LayoutBuilder` et `MediaQuery` pour des layouts spécifiques Mobile (< 768px), Tablet (768-1199px) et Desktop (> 1200px).
+
+# DESIGN SYSTEM STRICT (À respecter absolument)
+- **Couleurs** : 
+  - Primaire (Navy) : `#0B1F45` (boutons, navigation active)
+  - Secondaire : `#163A70`
+  - Accent (Orange) : `#F28C28` (logo, highlights uniquement)
+  - Fond (Background) : `#F5F7FA`
+  - Surface (Cartes) : `#FFFFFF`
+  - Bordure : `#E5E7EB`
+  - Texte : Primaire `#172033`, Secondaire `#64748B`, Muted `#94A3B8`
+- **Typographie** : Police "Inter" pour l'interface, "Poppins" pour le logo. Titres 24-28px, Texte 14-15px.
+- **Composants** : 
+  - Cartes : Fond blanc, bordure 1px, radius 12-16px, ombre très subtile.
+  - Boutons : Navy, radius 8-10px, hauteur 44px.
+  - Inputs : Fond blanc, bordure fine, radius 8px, hauteur 48px.
+- **Style global** : Minimaliste, propre, inspiré de LinkedIn/Facebook. Pas de dégradés excessifs, pas de couleurs fluo, pas d'illustrations cartoon.
+
+# CONNEXION SUPABASE (Tables existantes)
+- **Auth** : `auth.users`, table `profiles` (pour les infos du user, déclenchée par trigger).
+- **Feed** : `posts`, `post_media`, `comments`, `reactions`, `follows`.
+- **Marketplace** : `businesses`, `business_services`, `business_products`, `categories`.
+- **Messagerie** : `conversations`, `conversation_members`, `messages`.
+- **Storage** : Buckets `avatars` (public), `business-media` (public), `post-media` (public).
+
+# PLAN DE TRAVAIL (GÉNÈRE LE CODE ÉTAPE PAR ÉTAPE)
+
+Je vais te demander de générer le code phase par phase. Ne génère pas tout d'un coup, attends que je te dise "Passe à la phase suivante".
+
+## PHASE 1 : Setup & Design System
+1. Initialise le `main.dart` avec `Supabase.initialize` (en utilisant les variables d'environnement) et `ProviderScope`.
+2. Crée les fichiers de thème (`AppColors`, `AppTypography`, `AppTheme`).
+3. Crée les widgets réutilisables : `PrimaryButton`, `CustomTextField`, `SocialCard`, `AppAvatar`.
+4. Configure `GoRouter` avec une route de base et une redirection si l'utilisateur n'est pas connecté.
+
+## PHASE 2 : Authentification & Onboarding (Pages 1 à 5)
+1. **Page Splash** : Logo centré, fond blanc.
+2. **Page Landing (Welcome)** : Layout Desktop (2 colonnes : présentation + login/register) / Layout Mobile (vertical).
+3. **Page Login / Register** : Connexion via `supabase.auth.signInWithPassword` et inscription.
+4. **Onboarding** : Formulaire en 3 étapes (Step 1: Photo + Nom, Step 2: Wilaya + Université + Niveau, Step 3: Intérêts). Sauvegarde dans la table `profiles` via `supabase.from('profiles').update()`.
+
+## PHASE 3 : Layout Global & Navigation Responsive
+1. Crée le **Scaffold principal** qui gère le responsive :
+   - Mobile : `BottomNavigationBar` (Accueil, Recherche, Créer, Messages, Profil).
+   - Desktop : `Row` avec `LeftSidebar` (Menu), `Expanded` (Contenu central), `RightSidebar` (Suggestions).
+   - Tablet : Navigation Rail + Contenu central.
+2. Crée le menu "Créer" (Bottom Sheet sur mobile, Modal sur Desktop) avec les options : Publier un post, Demander de l'aide, Créer un Business.
+
+## PHASE 4 : Le Cœur Social (Pages 6, 9, 10, 14)
+1. **Home Feed (Page 6)** : 
+   - Barre de création de post en haut.
+   - Liste des posts : Récupérer depuis `supabase.from('posts').select('*, profiles(*), post_media(*)')`.
+   - Afficher l'avatar, le nom, le texte, les images, et les boutons (J'aime, Commenter, Partager).
+2. **Create Post (Page 9)** : Formulaire d'ajout. Upload de l'image vers le bucket `post-media` via `supabase.storage.from('post-media').upload()`, puis insertion dans `posts` et `post_media`.
+3. **Help Request (Page 10)** : Formulaire similaire mais avec des champs spécifiques (Catégorie, Niveau) enregistrés dans `service_requests`.
+4. **Profil Personnel (Page 14)** : 
+   - Bannière, Avatar, Bio, Stats (Abonnés, Posts).
+   - Onglets : Posts, À propos, Favoris.
+   - Bouton "Modifier mon profil" si c'est mon profil, sinon bouton "Suivre" (table `follows`) et "Message".
+
+## PHASE 5 : Business & Marketplace (Pages 16, 17, 18, 19, 20, 21)
+1. **Marketplace (Page 16)** : Grille de cartes de produits/services. Filtres par catégories (données de la table `categories`).
+2. **Détail Produit/Service (Page 17)** : Image, prix, description, bouton "Contacter le vendeur" (qui crée une conversation dans `conversations` et redirige vers le chat).
+3. **Vitrine Business (Page 18)** : Bannière, Logo, Onglets (Produits, Services, Avis).
+4. **Créer un Business (Page 19)** : Formulaire avec sélection de catégorie (utiliser `DropdownButton` connecté à `categories`). Insertion dans `businesses` (attention: 1 seul business par user).
+5. **Dashboard Business (Page 20 & 21)** : Pour le propriétaire. Permet d'ajouter des services/produits (avec **1 seule image** uploadée vers `business-media`, enregistrée dans `cover_image_path`).
+
+## PHASE 6 : Messagerie & Notifications (Pages 11, 12, 13)
+1. **Notifications (Page 11)** : Liste depuis la table `notifications`, groupées par date.
+2. **Messages Inbox (Page 12)** : Liste des conversations depuis `conversations` et `conversation_members`.
+3. **Chat Privé (Page 13)** : 
+   - Affichage des messages depuis `messages`.
+   - Utiliser `Supabase Realtime` pour écouter les nouveaux messages en direct.
+   - Input d'envoi. Bulles de chat distinctes (Moi vs Autre).
+
+## PHASE 7 : Recherche & Paramètres (Pages 7, 15, 22, 23)
+1. **Recherche (Page 7)** : Barre de recherche globale (Full Text Search sur `posts`, `businesses`, `profiles`). Filtres avancés.
+2. **Edit Profile (Page 15)** : Formulaire de modification connecté à `profiles`.
+3. **Settings (Page 22)** : Page de paramètres responsive (Navigation à gauche sur Desktop, liste sur Mobile).
+4. **Reporting (Page 23)** : Modale de signalement qui insère dans la table `reports`.
+
+# CONSIGNES POUR LA GÉNÉRATION
+- Écris un code propre, commenté et séparé dans des fichiers distincts.
+- Pour chaque page, donne-moi la structure du dossier (ex: `lib/features/auth/presentation/login_page.dart`).
+- Assure-toi que chaque appel Supabase gère les erreurs (`try/catch`) et affiche un loader pendant le chargement.
+- **Commence par la PHASE 1.** Donne-moi les fichiers de configuration de base, le thème et les widgets partagés. Attends mon feu vert pour la suite.
+ CAMPUSSERVICES — MASTER UI/UX DESIGN SPECIFICATION
+## Responsive Mobile App + Desktop Web Platform
+
+You are a senior UI/UX designer and senior Flutter developer. Your task is to create a complete, modern, professional, responsive UI for **CampusServices**, a student-oriented social networking and services marketplace platform in Algeria.
+
+The application must have a consistent design across mobile phones, tablets, laptops and desktop computers.
+
+The design inspiration should come from the usability, simplicity and visual maturity of platforms like Facebook, Instagram and LinkedIn, without copying their exact interfaces.
+
+The goal is to create a real social platform, not a gaming application, not a cartoon UI, and not a generic dashboard template.
+
+---
+
+# 1. DESIGN PHILOSOPHY
+
+CampusServices is a social network for university students, young entrepreneurs, freelancers and university communities.
+
+The design must feel:
+
+- Modern.
+- Minimalist.
+- Professional.
+- Social.
+- Clean.
+- Intuitive.
+- Lightweight.
+- Trustworthy.
+- Mobile-first.
+- Suitable for daily use.
+
+Avoid:
+
+- Cartoon illustrations.
+- Excessive gradients.
+- Neon colors.
+- Excessive animations.
+- Large decorative illustrations.
+- Oversized buttons.
+- Excessive rounded corners.
+- Childish design.
+- Too many colors.
+- Heavy shadows.
+- Unnecessary decorative elements.
+- Unnecessary empty space.
+- Generic AI-generated dashboard designs.
+
+The UI should resemble a mature social networking platform.
+
+Use real UI components, realistic content, authentic profile pictures, realistic posts and realistic marketplace content.
+
+---
+
+# 2. BRAND IDENTITY
+
+Brand name: CampusServices
+
+Slogan:
+"Your Campus, Your Services."
+
+Arabic slogan:
+"جامعتك، خدماتك."
+
+CampusServices is a platform that combines:
+
+- Student social networking.
+- Student communities.
+- Sharing publications.
+- Asking for academic help.
+- Discovering services.
+- Selling products.
+- Business storefronts.
+- Private messaging.
+- Student projects.
+- Freelance services.
+
+The application should visually represent a student community while maintaining a professional identity.
+
+---
+
+# 3. DESIGN SYSTEM
+
+## Color Palette
+
+Use a restrained color palette.
+
+### Primary Color
+Navy Blue:
+
+#0B1F45
+
+Use for:
+
+- Primary buttons.
+- Navigation selected states.
+- Logo elements.
+- Important actions.
+- Links when appropriate.
+
+### Secondary Color
+
+#163A70
+
+Use for:
+
+- Hover states.
+- Secondary navigation.
+- Active elements.
+
+### Brand Accent Orange
+
+#F28C28
+
+Use orange only for:
+
+- Brand accents.
+- Logo.
+- Small highlights.
+- Selected promotional elements.
+- Important secondary indicators.
+
+Orange must not dominate the interface.
+
+### Background
+
+#F5F7FA
+
+Use this as the primary application background.
+
+### Surface
+
+#FFFFFF
+
+Use white for:
+
+- Cards.
+- Navigation panels.
+- Modal dialogs.
+- Form containers.
+- Profile sections.
+- Feed posts.
+
+### Border
+
+#E5E7EB
+
+Use subtle borders for separators and card outlines.
+
+### Text Colors
+
+Primary text:
+
+#172033
+
+Secondary text:
+
+#64748B
+
+Muted text:
+
+#94A3B8
+
+### Status Colors
+
+Success: #16A34A
+
+Error: #DC2626
+
+Warning: #F59E0B
+
+Info: #2563EB
+
+Do not introduce additional colors unless necessary.
+
+---
+
+# 4. TYPOGRAPHY
+
+Use:
+
+- Inter for the interface.
+- Poppins only for the brand logo or very limited headings if necessary.
+
+Typography hierarchy:
+
+- Page titles: 24–28 px desktop, 20–24 px mobile.
+- Section titles: 16–20 px.
+- Card titles: 15–17 px.
+- Body text: 14–15 px.
+- Secondary text: 12–13 px.
+- Navigation: 14–15 px.
+
+Typography must be clean, consistent and readable.
+
+Avoid oversized text and decorative typography.
+
+---
+
+# 5. COMPONENT STYLE
+
+## Cards
+
+- White background.
+- Border: 1px solid #E5E7EB.
+- Border radius: 12–16 px.
+- Very subtle shadow or no shadow.
+- Consistent padding.
+- Clear hierarchy.
+- No exaggerated elevation.
+
+## Buttons
+
+Primary button:
+
+- Navy background.
+- White text.
+- Border radius: 8–10 px.
+- Medium font weight.
+- Height approximately 40–44 px.
+
+Secondary button:
+
+- White background.
+- Thin border.
+- Navy text.
+
+Follow button:
+
+- Compact.
+- Navy or subtle blue background.
+- Simple design.
+
+Danger button:
+
+- Red text or subtle red background.
+
+All buttons must have hover, pressed and disabled states.
+
+## Inputs
+
+- White background.
+- Border #E5E7EB.
+- Border radius 8 px.
+- Height around 44–48 px.
+- Clear placeholder.
+- Small icon when necessary.
+- Focus border in navy or blue.
+- No excessive decoration.
+
+## Icons
+
+Use a consistent outline icon system such as Lucide.
+
+Icons must be:
+
+- Simple.
+- Consistent.
+- Recognizable.
+- Similar in size.
+- Not excessively colorful.
+
+## Avatars
+
+Use circular profile images.
+
+Small avatars: 32–40 px.
+
+Medium avatars: 48–64 px.
+
+Large avatars: 100–140 px.
+
+Use realistic images, not illustrated avatars.
+
+---
+
+# 6. RESPONSIVE ARCHITECTURE
+
+The entire application must be responsive.
+
+Do not simply stretch the mobile interface to fit desktop.
+
+Build a dedicated layout for each device size while maintaining the same design system.
+
+## MOBILE — 360 px to 767 px
+
+Use:
+
+- Single-column layouts.
+- Bottom navigation.
+- Compact top headers.
+- Full-width cards.
+- Full-width forms.
+- Mobile-friendly dialogs.
+- Touch-friendly controls.
+- Minimum 44 px touch target where practical.
+
+Hide desktop sidebars.
+
+## TABLET — 768 px to 1199 px
+
+Use:
+
+- Adapted navigation.
+- Two-column layouts where appropriate.
+- Compact side navigation or navigation rail.
+- Feed centered.
+- Reduced side panels.
+- Responsive card grids.
+
+## DESKTOP — 1200 px and above
+
+Use:
+
+- Left sidebar.
+- Central content area.
+- Right sidebar where appropriate.
+- Top header.
+- Maximum content width around 1440 px.
+- Consistent spacing.
+- Centered page layout.
+- Proper responsive resizing.
+
+The desktop layout must resemble a real social networking website.
+
+---
+
+# 7. GLOBAL DESKTOP LAYOUT
+
+Create a consistent desktop layout for the main social application.
+
+## Top Header
+
+The top header must contain:
+
+- CampusServices logo on the left.
+- Global search bar.
+- Home shortcut.
+- Messages icon.
+- Notifications icon.
+- User profile avatar.
+- User menu.
+
+Header:
+
+- White background.
+- Fixed or sticky where appropriate.
+- Thin bottom border.
+- Height around 64–72 px.
+
+## Left Sidebar
+
+The left sidebar must contain:
+
+- CampusServices logo.
+- Accueil.
+- Recherche.
+- Messages.
+- Notifications.
+- Profil.
+- Marketplace.
+- Mes Business.
+- Paramètres.
+- A button to create a publication.
+- A button or promotional section to create a Business.
+
+Sidebar:
+
+- White background.
+- Clear navigation hierarchy.
+- Active item highlighted in navy.
+- Small, simple icons.
+- No unnecessary decorative elements.
+
+## Central Content
+
+The central content area must display:
+
+- Main page content.
+- Posts.
+- Search results.
+- Marketplace listings.
+- Profiles.
+- Business pages.
+- Other selected sections.
+
+## Right Sidebar
+
+Use the right sidebar only where it makes sense.
+
+Possible content:
+
+- Suggested users.
+- Suggested businesses.
+- Trending topics.
+- University communities.
+- Marketplace suggestions.
+- Relevant announcements.
+
+Do not force the right sidebar on every page.
+
+---
+
+# 8. GLOBAL MOBILE LAYOUT
+
+## Mobile Header
+
+The mobile header must contain:
+
+- Small CampusServices logo.
+- Search icon.
+- Notifications icon.
+- Optional profile avatar.
+
+Keep the header compact.
+
+## Bottom Navigation
+
+Use a fixed bottom navigation bar containing 5 items:
+
+1. Accueil.
+2. Recherche.
+3. Créer.
+4. Messages.
+5. Profil.
+
+The central Create button may be slightly emphasized but must remain minimal.
+
+Bottom navigation:
+
+- White background.
+- Thin top border.
+- Simple icons.
+- Small labels.
+- Selected icon in navy.
+- Safe-area support.
+- No excessive animation.
+
+The Create button must open a bottom sheet.
+
+Marketplace and Business must remain accessible from the main navigation, search, profile menu or additional navigation sections.
+
+---
+
+# 9. COMPLETE PAGE SPECIFICATIONS
+
+## PAGE 1 — SPLASH SCREEN
+
+Create a simple professional splash screen.
+
+Elements:
+
+- CampusServices logo centered.
+- Brand name.
+- Slogan.
+- Minimal loading indicator if needed.
+
+Background:
+
+White.
+
+Do not use complex animations.
+
+The splash screen must be elegant, minimal and short.
+
+---
+
+## PAGE 2 — WELCOME / LANDING PAGE
+
+Create a welcome page introducing CampusServices.
+
+Elements:
+
+- CampusServices logo.
+- Main title:
+  "Bienvenue sur CampusServices"
+- Subtitle:
+  "Connectez-vous, échangez et découvrez les services de votre campus."
+- Short explanation of the platform.
+- Button: "Se connecter".
+- Button: "Créer un compte".
+- Optional university-themed background photo used subtly.
+
+Mobile:
+
+Use a simple vertical layout.
+
+Desktop:
+
+Use a two-column layout.
+
+Left:
+
+- Brand introduction.
+- Platform benefits.
+- Minimal visual illustration or photograph.
+
+Right:
+
+- Authentication panel.
+
+Do not use excessive illustrations.
+
+---
+
+## PAGE 3 — LOGIN
+
+Create a modern login screen.
+
+Elements:
+
+- Logo.
+- Title: "Connexion".
+- Email input.
+- Password input.
+- Show/hide password.
+- Remember me option.
+- Forgot password link.
+- Login button.
+- Optional Google sign-in.
+- Link to registration.
+
+Mobile:
+
+Centered and full-width form.
+
+Desktop:
+
+Centered card or clean split layout.
+
+---
+
+## PAGE 4 — REGISTER
+
+Create a registration screen.
+
+Fields:
+
+- Full name.
+- Email.
+- Password.
+- Confirm password.
+
+Elements:
+
+- Create account button.
+- Terms and conditions.
+- Link to login.
+- Optional Google authentication.
+
+Keep the registration interface simple.
+
+Do not overload the screen with unnecessary information.
+
+---
+
+## PAGE 5 — ONBOARDING / PROFILE COMPLETION
+
+Create a multi-step onboarding process.
+
+Step 1:
+
+- Profile picture.
+- Full name.
+
+Step 2:
+
+- Wilaya.
+- University.
+- Study level.
+- Specialty.
+
+Step 3:
+
+- Interests.
+- Optional profile description.
+
+Elements:
+
+- Progress indicator.
+- Previous and next buttons.
+- Skip optional steps.
+- Finish button.
+
+The onboarding interface must be simple and easy to complete.
+
+---
+
+## PAGE 6 — HOME / SOCIAL FEED
+
+This is the most important page of CampusServices.
+
+Design it like a modern social network.
+
+### Desktop
+
+Left sidebar:
+
+Navigation.
+
+Central column:
+
+Feed.
+
+Right sidebar:
+
+Suggested users, businesses and trends.
+
+### Feed Header
+
+Create a compact post composer.
+
+Display:
+
+- User avatar.
+- Text input:
+  "Quoi de neuf ? Partagez quelque chose..."
+- Button: "Photo".
+- Button: "Créer un post".
+- Button: "Demande d'aide".
+- Button: "Créer une annonce".
+
+The composer must not be excessively tall.
+
+### Stories / Quick Community Section
+
+Optional.
+
+If included, use a compact horizontal row of avatars or university/community shortcuts.
+
+Do not make Stories the main focus.
+
+### Feed Posts
+
+Each post must contain:
+
+- User avatar.
+- User name.
+- University or profile description.
+- Date.
+- Privacy indicator.
+- Post text.
+- Optional image.
+- Optional hashtags.
+- Reaction count.
+- Comment count.
+- Share count.
+
+Actions:
+
+- J'aime.
+- Commenter.
+- Partager.
+
+Post design:
+
+- White card.
+- Thin border.
+- Subtle spacing.
+- Minimal typography.
+- Clear interaction buttons.
+
+The feed must support different types of content:
+
+- Student publications.
+- Academic questions.
+- Help requests.
+- Announcements.
+- Business posts.
+- Marketplace promotions.
+
+Mobile:
+
+Use a single-column feed.
+
+Posts must use the full available width.
+
+Desktop:
+
+Keep the central feed width between approximately 600 and 750 px depending on available space.
+
+---
+
+## PAGE 7 — SEARCH / DISCOVERY
+
+Create a global discovery page.
+
+The search page must allow searching for:
+
+- Students.
+- Posts.
+- Businesses.
+- Products.
+- Services.
+- Universities.
+
+Elements:
+
+- Search input.
+- Search category tabs.
+- Filters.
+- Results.
+
+Filters:
+
+- Wilaya.
+- University.
+- Category.
+- Study level where applicable.
+- Business category.
+- Content type.
+
+Desktop:
+
+Use a filter panel on the left or top.
+
+Mobile:
+
+Filters must open in a bottom sheet or dedicated page.
+
+Results must be displayed in clean cards or lists.
+
+---
+
+## PAGE 8 — CREATE MENU
+
+When the user clicks the central Create button, open a clean modal or bottom sheet.
+
+Options:
+
+### Create a post
+
+Icon and title:
+
+"Publier un post"
+
+Description:
+
+"Partager une idée, une information ou une publication."
+
+### Ask for help
+
+Icon and title:
+
+"Demander de l'aide"
+
+Description:
+
+"Poser une question ou demander de l'aide à la communauté."
+
+### Create a Business
+
+Icon and title:
+
+"Créer un Business"
+
+Description:
+
+"Présenter votre activité, vos produits ou vos services."
+
+Desktop:
+
+Use a centered modal.
+
+Mobile:
+
+Use a bottom sheet.
+
+Keep the options simple and compact.
+
+---
+
+## PAGE 9 — CREATE POST
+
+Create a post composer.
+
+Elements:
+
+- User avatar.
+- User name.
+- Text area.
+- Add photo.
+- Add attachment if supported.
+- Add hashtags.
+- Optional audience selection.
+- Publish button.
+
+The composer must be minimal.
+
+Desktop:
+
+Modal or dedicated page.
+
+Mobile:
+
+Full-screen composer or bottom-sheet expanded layout.
+
+---
+
+## PAGE 10 — HELP REQUEST
+
+Create a dedicated help-request form.
+
+Fields:
+
+- Title.
+- Description.
+- Category.
+- University or specialty if relevant.
+- Optional image.
+- Optional tags.
+
+Categories can include:
+
+- Informatique.
+- Mathématiques.
+- Langues.
+- Sciences.
+- Études.
+- Projets.
+- Autre.
+
+Elements:
+
+- Publish request.
+- Preview if necessary.
+
+The published help request must appear in the feed.
+
+Use the same visual style as regular posts.
+
+---
+
+## PAGE 11 — NOTIFICATIONS
+
+Create a notification page.
+
+Notifications include:
+
+- Likes.
+- Comments.
+- New followers.
+- Messages.
+- Business interactions.
+- Help-request responses.
+
+Layout:
+
+- Group notifications by date.
+- Show user avatars.
+- Clear notification text.
+- Optional action buttons.
+- Mark as read.
+- Notification settings shortcut.
+
+Desktop:
+
+Use a central page.
+
+Mobile:
+
+Use a full-width list.
+
+---
+
+## PAGE 12 — MESSAGES / INBOX
+
+Create a modern messaging interface.
+
+### Desktop
+
+Two-column layout.
+
+Left:
+
+Conversation list.
+
+Right:
+
+Selected conversation.
+
+Conversation list contains:
+
+- Avatar.
+- Name.
+- Last message.
+- Time.
+- Unread indicator.
+
+Chat:
+
+- Header.
+- User information.
+- Message history.
+- Text input.
+- Send button.
+- Attachment button.
+- Optional image attachment.
+
+### Mobile
+
+Inbox:
+
+Display conversation list.
+
+Chat:
+
+Open the selected conversation in a separate full-screen page.
+
+The messaging interface must feel familiar, like modern social messaging applications.
+
+---
+
+## PAGE 13 — PRIVATE CHAT
+
+Create a dedicated chat page.
+
+Elements:
+
+- Header with avatar.
+- User name.
+- Online status if available.
+- Messages.
+- Message timestamps.
+- Text composer.
+- Send button.
+- Attachment button.
+
+Message bubbles:
+
+- Sent messages use a subtle blue or navy tone.
+- Received messages use a light gray background.
+
+Do not use oversized bubbles.
+
+Do not use gradients.
+
+The chat must remain clean and readable.
+
+---
+
+## PAGE 14 — PERSONAL PROFILE
+
+Create a professional student profile.
+
+Elements:
+
+- Cover photo.
+- Profile picture.
+- Full name.
+- Username.
+- University.
+- Specialty.
+- Study level.
+- Bio.
+- Followers.
+- Following.
+- Posts count.
+
+Actions:
+
+- Modifier mon profil.
+- Follow / Unfollow if visiting another profile.
+- Message.
+- Share profile.
+
+Profile sections:
+
+- Publications.
+- About.
+- Photos.
+- Favorites if available to the owner.
+- Additional sections depending on permissions.
+
+Desktop:
+
+Use a centered profile layout.
+
+Mobile:
+
+Use a compact profile header.
+
+Do not make the profile look like an administrative dashboard.
+
+---
+
+## PAGE 15 — EDIT PROFILE
+
+Create a profile editing form.
+
+Fields:
+
+- Profile photo.
+- Cover image.
+- Full name.
+- Username.
+- Bio.
+- Wilaya.
+- University.
+- Study level.
+- Specialty.
+- Interests.
+
+Elements:
+
+- Save changes.
+- Cancel.
+- Optional preview.
+
+Use simple form sections.
+
+---
+
+## PAGE 16 — MARKETPLACE
+
+Create a modern marketplace for student products and services.
+
+The marketplace must support:
+
+- Products.
+- Services.
+- Digital products if permitted.
+- Freelance services.
+- Business listings.
+
+### Marketplace Header
+
+- Title.
+- Search.
+- Categories.
+- Filter button.
+
+### Categories
+
+- Tous.
+- Produits.
+- Services.
+- Informatique.
+- Éducation.
+- Mode.
+- Beauté.
+- Maison.
+- Digital.
+- Autres.
+
+### Product Cards
+
+Each card contains:
+
+- Product image.
+- Title.
+- Price in DZD.
+- Seller or Business name.
+- Location where relevant.
+- Favorite button.
+
+Cards must be clean and compact.
+
+Desktop:
+
+Use a 3-column or 4-column grid depending on width.
+
+Mobile:
+
+Use a 2-column grid when appropriate.
+
+Use 1-column layouts only when cards need more information or the screen is too narrow.
+
+---
+
+## PAGE 17 — PRODUCT / SERVICE DETAIL
+
+Create a product or service detail page.
+
+Elements:
+
+- Main image.
+- Product name.
+- Price in DZD.
+- Seller information.
+- Business name.
+- Description.
+- Category.
+- Availability.
+- Reviews if supported.
+- Related listings.
+
+Actions:
+
+- Contact seller.
+- Add to favorites.
+- Share.
+
+Desktop:
+
+Use a two-column layout.
+
+Left:
+
+Image gallery.
+
+Right:
+
+Product details and contact card.
+
+Mobile:
+
+Stack image and information vertically.
+
+The Contact Seller button should be clearly visible.
+
+---
+
+## PAGE 18 — BUSINESS STOREFRONT
+
+Create a public Business profile page.
+
+Elements:
+
+- Cover image.
+- Business logo.
+- Business name.
+- Category.
+- Description.
+- Wilaya.
+- Followers.
+- Business verification indicator if available.
+- Follow button.
+- Contact button.
+
+Tabs:
+
+- À propos.
+- Produits.
+- Services.
+- Avis.
+
+Display listings in a clean grid.
+
+The storefront must feel like a professional business profile inside a social network, not like a standalone e-commerce website.
+
+---
+
+## PAGE 19 — CREATE BUSINESS
+
+Create a Business creation process.
+
+Fields:
+
+- Business name.
+- Business logo.
+- Cover image optional.
+- Category.
+- Description.
+- Wilaya.
+- Contact details where permitted.
+
+Business categories must support:
+
+- Design.
+- Informatique.
+- Mode.
+- Beauté.
+- Éducation.
+- Services.
+- Commerce.
+- Digital.
+- Autre.
+
+The "Autre" category must be available.
+
+Elements:
+
+- Continue.
+- Save draft if applicable.
+- Create Business.
+
+The form must be clean and easy to complete.
+
+---
+
+## PAGE 20 — BUSINESS DASHBOARD
+
+Create a simple and professional dashboard for Business owners.
+
+The dashboard must not look like a complex enterprise admin panel.
+
+Header:
+
+- Business logo.
+- Business name.
+- Business status.
+- Settings.
+
+Navigation:
+
+- Tableau de bord.
+- Mes produits.
+- Mes services.
+- Avis.
+- Statistiques.
+- Paramètres.
+
+Statistics:
+
+- Views.
+- Clicks.
+- Followers.
+- Listings.
+
+Use compact statistic cards.
+
+Charts must be simple and minimal.
+
+Listings management:
+
+- Listing image.
+- Title.
+- Price.
+- Status.
+- Edit.
+- Delete.
+- Availability.
+
+Create a listing button.
+
+Keep the dashboard simple and understandable.
+
+---
+
+## PAGE 21 — CREATE PRODUCT OR SERVICE
+
+Create a listing form.
+
+Fields:
+
+- Title.
+- Description.
+- Price.
+- Category.
+- One main photo.
+- Availability.
+- Type: Product or Service.
+
+Elements:
+
+- Publish.
+- Save draft if applicable.
+
+The interface must use the same form design system as the other pages.
+
+Do not use complex multi-column forms on mobile.
+
+---
+
+## PAGE 22 — SETTINGS
+
+Create a settings page.
+
+Sections:
+
+### Account
+
+- Edit account.
+- Email.
+- Password.
+
+### Profile
+
+- Edit profile.
+- University information.
+
+### Notifications
+
+- Manage notification preferences.
+
+### Privacy
+
+- Privacy settings.
+- Profile visibility.
+
+### Language
+
+- Français.
+- English.
+- العربية if supported.
+
+### Security
+
+- Password.
+- Security settings.
+
+### Support
+
+- Help.
+- Contact.
+- Report a problem.
+
+### Logout
+
+Provide a clear logout action.
+
+Desktop:
+
+Use a left settings navigation and central content.
+
+Mobile:
+
+Use a list of settings sections with separate detail pages.
+
+---
+
+## PAGE 23 — REPORTING
+
+Create a report modal.
+
+Elements:
+
+- Report type.
+- Reason.
+- Description optional.
+- Submit.
+
+Report types:
+
+- Publication.
+- User.
+- Business.
+- Product.
+- Message where permitted.
+
+Use a simple modal with clear labels.
+
+---
+
+# 10. DESKTOP PAGE DESIGN RULES
+
+For every page:
+
+- Maintain the same global header.
+- Maintain consistent navigation.
+- Use the same card system.
+- Use the same spacing.
+- Use the same typography.
+- Use the same button styles.
+- Use the same colors.
+- Use the same icon system.
+
+Desktop must not become a stretched mobile design.
+
+The feed must use a centered content area.
+
+The right sidebar must not overlap the feed.
+
+The left sidebar must not consume excessive space.
+
+Suggested desktop proportions:
+
+- Left sidebar: 240–260 px.
+- Central feed: 600–750 px.
+- Right sidebar: 280–320 px.
+- Gaps: 20–24 px.
+
+Adapt the layout according to available width.
+
+---
+
+# 11. MOBILE PAGE DESIGN RULES
+
+For every page:
+
+- Use a compact header.
+- Avoid horizontal overflow.
+- Avoid desktop sidebars.
+- Use full-width content.
+- Keep consistent horizontal padding between 12 and 16 px.
+- Use touch-friendly buttons.
+- Use mobile-friendly forms.
+- Use bottom sheets for filters and create menus.
+- Use full-screen pages for chat and complex forms where appropriate.
+- Respect safe areas.
+- Keep the bottom navigation consistent across main sections.
+- Avoid excessive empty space.
+- Avoid large oversized cards.
+- Do not hide essential functionality.
+
+---
+
+# 12. RESPONSIVE BEHAVIOR
+
+The application must use adaptive layouts.
+
+When the screen changes:
+
+- Desktop sidebars must adapt or disappear.
+- The central feed must remain readable.
+- Marketplace grids must change columns.
+- Search filters must adapt.
+- Forms must resize.
+- Navigation must change from desktop sidebar to mobile bottom navigation.
+- Messaging must switch between inbox and full-screen chat.
+- Profile layouts must adapt.
+- Business dashboards must remain accessible on mobile.
+
+Responsive design must be implemented properly, not just visually simulated.
+
+---
+
+# 13. INTERACTION DESIGN
+
+Every UI component must be designed for real interaction.
+
+Buttons must have:
+
+- Default state.
+- Hover state where applicable.
+- Pressed state.
+- Disabled state.
+
+Inputs must have:
+
+- Default.
+- Focus.
+- Error.
+- Filled.
+
+Cards must have subtle hover behavior on desktop where appropriate.
+
+Navigation must show the selected page.
+
+Modals must have:
+
+- Close button.
+- Proper spacing.
+- Clear action buttons.
+
+Bottom sheets must be adapted for mobile.
+
+Do not add unnecessary animations.
+
+Use subtle transitions only.
+
+---
+
+# 14. DESIGN CONSISTENCY
+
+The entire platform must use one consistent design system.
+
+Do not redesign every page independently.
+
+Every page must share:
+
+- Same colors.
+- Same fonts.
+- Same spacing system.
+- Same button design.
+- Same cards.
+- Same input fields.
+- Same navigation.
+- Same icon style.
+- Same border radius.
+- Same typography hierarchy.
+
+The mobile and desktop designs must look like two versions of the same application.
+
+---
+
+# 15. FINAL DESIGN EXPECTATION
+
+Create a complete CampusServices UI/UX that feels like a real social networking platform for university students.
+
+The interface must be inspired by the simplicity, usability and maturity of large social platforms such as Facebook, Instagram and LinkedIn.
+
+The design must be:
+
+- Professional.
+- Minimal.
+- Clean.
+- Social.
+- Modern.
+- Responsive.
+- Practical.
+- Easy to navigate.
+- Consistent.
+
+The primary objective is to create a platform that students can use every day.
+
+Do not make it look like a gaming application.
+
+Do not make it look like a children's application.
+
+Do not make it look like a generic admin template.
+
+Do not use excessive gradients, colorful illustrations or unnecessary visual decorations.
+
+Prioritize the content, user interaction, navigation and usability.
+
+Build all pages using the same design system, for both mobile and desktop.
+ 
+**Treat this document as the definitive UI/UX design specification for CampusServices.**  # RÔLE ET CONTEXTE
+Tu es un développeur Flutter Senior et Expert UI/UX, spécialisé en sécurité des applications. Je construis "CampusServices", une plateforme sociale et marketplace pour étudiants en Algérie. 
+Le backend (Supabase) est déjà 100% terminé et sécurisé (RLS activées, rôles admin définis, storage privé configuré). Tu dois coder le Frontend en Flutter Web/Mobile en respectant strictement le design system fourni, connecter chaque page à la base de données, et garantir une sécurité maximale côté client.
+
+# ARCHITECTURE TECHNIQUE & SÉCURITÉ
+- **Framework** : Flutter (Dart)
+- **Gestion d'état** : Riverpod (avec `StateNotifier` pour les états complexes).
+- **Navigation** : GoRouter (avec des `redirect` stricts basés sur l'état d'authentification).
+- **Backend** : Supabase (Auth, Database, Storage).
+- **Configuration** : Utiliser `flutter_dotenv` pour charger `SUPABASE_URL` et `SUPABASE_ANON_KEY`. **Ne jamais hardcoder les clés. Ne jamais mettre la clé `service_role` dans Flutter.**
+- **Responsive** : Utiliser `LayoutBuilder` et `MediaQuery` pour des layouts spécifiques Mobile (< 768px), Tablet (768-1199px) et Desktop (> 1200px).
+
+# 🛡️ RÈGLES DE SÉCURITÉ ABSOLUES (À APPLIQUER À CHAQUE LIGNE DE CODE)
+1. **Authentification** : Écouter en permanence `Supabase.instance.client.auth.onAuthStateChange`. Si la session expire, rediriger immédiatement vers la page de Login. Protéger toutes les routes privées via GoRouter.
+2. **Validation des entrées** : Utiliser `TextFormField` avec des `validator` stricts pour tous les formulaires (email, mot de passe, nom, prix). Ne jamais faire confiance aux données saisies par l'utilisateur.
+3. **Gestion des erreurs** : Envelopper chaque appel Supabase dans un `try/catch`. Afficher des messages d'erreur **génériques** à l'utilisateur (ex: "Une erreur est survenue", "Email ou mot de passe incorrect"). **Ne jamais afficher l'erreur brute de PostgreSQL** (cela pourrait révéler la structure de la base).
+4. **Sécurité du Storage** : Avant d'uploader un fichier (avatar, post, service), valider son type MIME (image/jpeg, image/png) et sa taille (ex: max 5 Mo). Utiliser des noms de fichiers uniques (`UUID + extension`) pour éviter d'écraser les fichiers des autres.
+5. **Respect des RLS** : Le code Flutter doit être conçu en sachant que la base de données refusera les actions non autorisées. Par exemple, si un utilisateur essaie de modifier le post d'un autre, l'UPDATE retournera 0 ligne. Gérer ce cas proprement dans l'UI.
+6. **Déconnexion** : Vider toutes les données sensibles de l'état local (Riverpod) lors de la déconnexion.
+
+# DESIGN SYSTEM STRICT (À respecter absolument)
+- **Couleurs** : 
+  - Primaire (Navy) : `#0B1F45` (boutons, navigation active)
+  - Secondaire : `#163A70`
+  - Accent (Orange) : `#F28C28` (logo, highlights uniquement)
+  - Fond (Background) : `#F5F7FA`
+  - Surface (Cartes) : `#FFFFFF`
+  - Bordure : `#E5E7EB`
+  - Texte : Primaire `#172033`, Secondaire `#64748B`, Muted `#94A3B8`
+- **Typographie** : Police "Inter" pour l'interface, "Poppins" pour le logo. Titres 24-28px, Texte 14-15px.
+- **Composants** : Cartes blanches avec ombre subtile (radius 12-16px), boutons Navy (radius 8-10px, hauteur 44px), inputs avec fond blanc et bordure fine (radius 8px).
+
+# CONNEXION SUPABASE (Tables existantes)
+- **Auth** : `auth.users`, table `profiles` (déclenchée par trigger).
+- **Feed** : `posts`, `post_media`, `comments`, `reactions`, `follows`.
+- **Marketplace** : `businesses`, `business_services`, `business_products`, `categories`.
+- **Messagerie** : `conversations`, `conversation_members`, `messages`.
+- **Storage** : Buckets `avatars` (public), `business-media` (public), `post-media` (public).
+
+# PLAN DE TRAVAIL (GÉNÈRE LE CODE ÉTAPE PAR ÉTAPE)
+
+Je vais te demander de générer le code phase par phase. Ne génère pas tout d'un coup, attends que je te dise "Passe à la phase suivante".
+
+## PHASE 1 : Setup, Design System & Sécurité de base
+1. Initialise le `main.dart` avec `Supabase.initialize` (via `.env`), `ProviderScope`, et l'écoute de `onAuthStateChange`.
+2. Crée les fichiers de thème (`AppColors`, `AppTypography`, `AppTheme`).
+3. Crée les widgets réutilisables : `PrimaryButton`, `CustomTextField` (avec validation), `SocialCard`, `AppAvatar`.
+4. Configure `GoRouter` avec une route de base, une route protégée (redirection si pas connecté), et une route publique.
+
+## PHASE 2 : Authentification & Onboarding (Pages 1 à 5)
+1. **Page Splash** : Logo centré, vérification de la session en cours.
+2. **Page Landing** : Responsive (2 colonnes Desktop / vertical Mobile).
+3. **Page Login / Register** : Connexion via `supabase.auth.signInWithPassword`. Gestion stricte des erreurs (ne pas révéler si l'email existe ou non).
+4. **Onboarding** : Formulaire en 3 étapes. Mise à jour sécurisée de la table `profiles` (RLS garantit qu'on ne modifie que son propre profil).
+
+## PHASE 3 : Layout Global & Navigation Responsive
+1. **Scaffold principal** : 
+   - Mobile : `BottomNavigationBar`.
+   - Desktop : `Row` avec `LeftSidebar`, `Expanded` (Contenu), `RightSidebar`.
+2. **Menu "Créer"** : Bottom Sheet (Mobile) / Modal (Desktop) avec options (Post, Aide, Business).
+
+## PHASE 4 : Le Cœur Social (Pages 6, 9, 10, 14)
+1. **Home Feed (Page 6)** : Récupération des posts avec `supabase.from('posts').select(...)`. Affichage conditionnel selon que l'utilisateur est connecté ou non.
+2. **Create Post (Page 9)** : Formulaire d'ajout avec validation des images (taille/type) avant upload vers `post-media`.
+3. **Help Request (Page 10)** : Formulaire spécifique enregistré dans `service_requests`.
+4. **Profil Personnel (Page 14)** : Affichage des données. Bouton "Modifier" (uniquement si `auth.uid() == profile.id`), sinon bouton "Suivre".
+
+## PHASE 5 : Business & Marketplace (Pages 16, 17, 18, 19, 20, 21)
+1. **Marketplace (Page 16)** : Grille de produits/services avec filtres connectés à la table `categories`.
+2. **Détail Produit (Page 17)** : Image, prix, bouton "Contacter" (crée une conversation).
+3. **Vitrine Business (Page 18)** : Onglets (Produits, Services, Avis).
+4. **Créer un Business (Page 19)** : Formulaire. Gérer l'erreur si l'utilisateur a déjà un business (contrainte UNIQUE).
+5. **Dashboard Business (Page 20 & 21)** : Ajout de services/produits avec **1 seule image** validée.
+
+## PHASE 6 : Messagerie & Notifications (Pages 11, 12, 13)
+1. **Notifications (Page 11)** : Liste depuis `notifications`.
+2. **Messages Inbox (Page 12)** : Liste des conversations.
+3. **Chat Privé (Page 13)** : Utiliser `Supabase Realtime` pour les nouveaux messages. Valider que l'utilisateur fait bien partie de la conversation avant d'afficher.
+
+## PHASE 7 : Recherche & Paramètres (Pages 7, 15, 22, 23)
+1. **Recherche (Page 7)** : Filtres avancés.
+2. **Edit Profile (Page 15)** : Formulaire de modification.
+3. **Settings (Page 22)** : Navigation responsive.
+4. **Reporting (Page 23)** : Modale de signalement (`reports`).
+
+# CONSIGNES POUR LA GÉNÉRATION
+- Écris un code propre, commenté et séparé dans des fichiers distincts.
+- Assure-toi que chaque appel Supabase gère les erreurs (`try/catch`) et affiche un loader.
+- **Commence par la PHASE 1.** Donne-moi les fichiers de configuration, le thème, les widgets sécurisés et le routeur. Attends mon feu vert pour la suite.
