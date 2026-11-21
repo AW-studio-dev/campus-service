@@ -8,11 +8,44 @@ import '../../../shared/widgets/social_card.dart';
 import '../application/notification_providers.dart';
 import '../data/notification_repository.dart';
 
-class NotificationsPage extends ConsumerWidget {
+class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends ConsumerState<NotificationsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _markAllAsRead());
+  }
+
+  Future<void> _markAllAsRead() async {
+    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await ref.read(notificationRepositoryProvider).markAllAsRead(userId);
+      if (!mounted) return;
+      ref.invalidate(notificationsProvider);
+      ref.invalidate(unreadNotificationsCountProvider);
+    } on Exception {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Impossible de marquer les notifications comme lues.',
+            ),
+          ),
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final notifications = ref.watch(notificationsProvider);
     final userId = ref.watch(supabaseClientProvider).auth.currentUser?.id ?? '';
     return Column(
@@ -29,7 +62,10 @@ class NotificationsPage extends ConsumerWidget {
               ),
               IconButton(
                 tooltip: 'Actualiser',
-                onPressed: () => ref.invalidate(notificationsProvider),
+                onPressed: () {
+                  ref.invalidate(notificationsProvider);
+                  ref.invalidate(unreadNotificationsCountProvider);
+                },
                 icon: const Icon(Icons.refresh),
               ),
             ],
@@ -101,6 +137,9 @@ class NotificationsPage extends ConsumerWidget {
                                           userId,
                                         );
                                         ref.invalidate(notificationsProvider);
+                                        ref.invalidate(
+                                          unreadNotificationsCountProvider,
+                                        );
                                       } on Exception {
                                         if (context.mounted) {
                                           ScaffoldMessenger.of(context)

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,8 +14,8 @@ import '../../features/marketplace/application/marketplace_providers.dart';
 import '../../features/messaging/application/messaging_providers.dart';
 import '../../features/notifications/application/notification_providers.dart';
 import '../../features/profile/application/profile_providers.dart';
-import '../../features/settings/application/settings_providers.dart';
 import '../../features/ads/application/ad_providers.dart';
+import '../../features/settings/application/settings_providers.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({required this.child, super.key});
@@ -34,6 +36,16 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   ];
 
   bool _isSigningOut = false;
+  Timer? _notificationRefreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationRefreshTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => ref.invalidate(unreadNotificationsCountProvider),
+    );
+  }
 
   Future<void> _signOut() async {
     if (_isSigningOut) return;
@@ -60,6 +72,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     ref.invalidate(myBusinessProvider);
     ref.invalidate(notificationsProvider);
     ref.invalidate(notificationSettingsProvider);
+    ref.invalidate(unreadNotificationsCountProvider);
+  }
+
+  @override
+  void dispose() {
+    _notificationRefreshTimer?.cancel();
+    super.dispose();
   }
 
   void _selectDestination(int index) {
@@ -196,6 +215,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   PreferredSizeWidget _buildHeader(BuildContext context) {
     final isPhone = MediaQuery.sizeOf(context).width < 768;
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
     final canManageAds =
         ref.watch(isAdminProvider).whenOrNull(data: (isAdmin) => isAdmin) ??
         false;
@@ -206,7 +226,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.asset(
-              'logo.jpeg',
+              'logo.png',
               width: 38,
               height: 38,
               fit: BoxFit.cover,
@@ -227,7 +247,16 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         IconButton(
           tooltip: 'Notifications',
           onPressed: () => context.go('/notifications'),
-          icon: const Icon(Icons.notifications_none_outlined),
+          icon: unreadCount.when(
+            loading: () => const Icon(Icons.notifications_none_outlined),
+            error: (error, stackTrace) =>
+                const Icon(Icons.notifications_none_outlined),
+            data: (count) => Badge(
+              isLabelVisible: count > 0,
+              label: Text(count > 99 ? '99+' : '$count'),
+              child: const Icon(Icons.notifications_none_outlined),
+            ),
+          ),
         ),
         if (canManageAds)
           IconButton(
@@ -281,7 +310,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.asset(
-                    'logo.jpeg',
+                    'logo.png',
                     width: 44,
                     height: 44,
                     fit: BoxFit.cover,

@@ -32,6 +32,22 @@ class NotificationRepository {
         .eq('id', notificationId)
         .eq('user_id', userId);
   }
+
+  Future<int> countUnreadNotifications(String userId) {
+    return _client
+        .from('notifications')
+        .count(CountOption.exact)
+        .eq('user_id', userId)
+        .isFilter('read_at', null);
+  }
+
+  Future<void> markAllAsRead(String userId) async {
+    await _client
+        .from('notifications')
+        .update({'read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('user_id', userId)
+        .isFilter('read_at', null);
+  }
 }
 
 class AppNotification {

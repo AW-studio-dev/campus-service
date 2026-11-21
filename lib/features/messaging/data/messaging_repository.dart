@@ -97,7 +97,7 @@ class MessagingRepository {
         .from('messages')
         .select('id, sender_id, body, created_at')
         .eq('conversation_id', conversationId)
-        .order('created_at')
+        .order('created_at', ascending: false)
         .limit(500);
     return rows
         .map(
@@ -108,6 +108,8 @@ class MessagingRepository {
             createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
           ),
         )
+        .toList()
+        .reversed
         .toList();
   }
 

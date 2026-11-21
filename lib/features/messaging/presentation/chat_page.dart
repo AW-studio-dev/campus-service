@@ -29,6 +29,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   String? _conversationId;
   bool _isStartingConversation = false;
   bool _isSending = false;
+  String? _lastRenderedMessageId;
 
   @override
   void initState() {
@@ -217,6 +218,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     ),
                   ),
                   data: (items) {
+                    if (items.isNotEmpty &&
+                        items.last.id != _lastRenderedMessageId) {
+                      final isFirstList = _lastRenderedMessageId == null;
+                      final shouldScroll =
+                          isFirstList ||
+                          !_scrollController.hasClients ||
+                          _scrollController.position.maxScrollExtent -
+                                  _scrollController.position.pixels <
+                              120;
+                      _lastRenderedMessageId = items.last.id;
+                      if (shouldScroll) _scrollToLatest();
+                    }
                     if (items.isEmpty) {
                       return const Center(
                         child: Text('Envoyez le premier message.'),
@@ -301,5 +314,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ),
       ],
     );
+  }
+
+  void _scrollToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      unawaited(
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    });
   }
 }

@@ -14,3 +14,11 @@ final notificationsProvider = FutureProvider<List<AppNotification>>((ref) {
   }
   return ref.watch(notificationRepositoryProvider).fetchNotifications(userId);
 });
+
+final unreadNotificationsCountProvider = FutureProvider<int>((ref) {
+  final userId = ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  if (userId == null) return Future.value(0);
+  return ref
+      .watch(notificationRepositoryProvider)
+      .countUnreadNotifications(userId);
+});
