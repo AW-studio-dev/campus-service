@@ -13,18 +13,11 @@ class MessagingRepository {
       throw const InvalidConversationException();
     }
 
-    final conversation = await _client
-        .from('conversations')
-        .insert({'type': 'direct'})
-        .select('id')
-        .single();
-    final conversationId = conversation['id'] as String;
-
-    await _client.from('conversation_members').insert([
-      {'conversation_id': conversationId, 'user_id': currentUserId},
-      {'conversation_id': conversationId, 'user_id': otherUserId},
-    ]);
-    return conversationId;
+    final conversationId = await _client.rpc(
+      'create_direct_conversation',
+      params: {'p_other_user_id': otherUserId},
+    );
+    return conversationId as String;
   }
 
   Future<List<InboxConversation>> fetchInbox(String currentUserId) async {

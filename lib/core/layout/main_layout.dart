@@ -194,6 +194,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   }
 
   PreferredSizeWidget _buildHeader(BuildContext context) {
+    final isPhone = MediaQuery.sizeOf(context).width < 768;
     return AppBar(
       title: Row(
         mainAxisSize: MainAxisSize.min,
@@ -207,8 +208,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               fit: BoxFit.cover,
             ),
           ),
-          const SizedBox(width: 10),
-          Text('CampusServices', style: AppTypography.logo),
+          if (!isPhone) ...[
+            const SizedBox(width: 10),
+            Text('CampusServices', style: AppTypography.logo),
+          ],
         ],
       ),
       actions: [

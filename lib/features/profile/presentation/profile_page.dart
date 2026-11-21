@@ -64,46 +64,48 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         final posts = ref.watch(userPostsProvider(record.id));
         return DefaultTabController(
           length: isOwner ? 3 : 2,
-          child: Column(
-            children: [
-              _ProfileHeader(
-                profile: record,
-                isOwner: isOwner,
-                isFollowingBusy: _isFollowingBusy,
-                onEdit: () => context.go('/profile/edit'),
-                onFollow: isOwner || viewerId == null
-                    ? null
-                    : () => _toggleFollow(record, viewerId),
-                onMessage: isOwner
-                    ? null
-                    : () => context.go(
-                        '/chat/new?userId=${Uri.encodeComponent(record.id)}',
-                      ),
-                onBusiness: isOwner
-                    ? () => context.go('/business/manage')
-                    : null,
-              ),
-              Material(
-                color: AppColors.surface,
-                child: TabBar(
-                  tabs: [
-                    const Tab(text: 'Publications'),
-                    const Tab(text: 'À propos'),
-                    if (isOwner) const Tab(text: 'Favoris'),
-                  ],
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              SliverToBoxAdapter(
+                child: _ProfileHeader(
+                  profile: record,
+                  isOwner: isOwner,
+                  isFollowingBusy: _isFollowingBusy,
+                  onEdit: () => context.go('/profile/edit'),
+                  onFollow: isOwner || viewerId == null
+                      ? null
+                      : () => _toggleFollow(record, viewerId),
+                  onMessage: isOwner
+                      ? null
+                      : () => context.go(
+                          '/chat/new?userId=${Uri.encodeComponent(record.id)}',
+                        ),
+                  onBusiness: isOwner
+                      ? () => context.go('/business/manage')
+                      : null,
                 ),
               ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _PostList(profileId: record.id, posts: posts, saved: false),
-                    _AboutProfile(profile: record),
-                    if (isOwner)
-                      _SavedPostList(posts: ref.watch(savedPostsProvider)),
-                  ],
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _ProfileTabBarDelegate(
+                  TabBar(
+                    tabs: [
+                      const Tab(text: 'Publications'),
+                      const Tab(text: 'À propos'),
+                      if (isOwner) const Tab(text: 'Favoris'),
+                    ],
+                  ),
                 ),
               ),
             ],
+            body: TabBarView(
+              children: [
+                _PostList(profileId: record.id, posts: posts, saved: false),
+                _AboutProfile(profile: record),
+                if (isOwner)
+                  _SavedPostList(posts: ref.watch(savedPostsProvider)),
+              ],
+            ),
           ),
         );
       },
@@ -116,6 +118,31 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
+}
+
+class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
+  const _ProfileTabBarDelegate(this.tabBar);
+
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Material(color: AppColors.surface, child: tabBar);
+  }
+
+  @override
+  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) =>
+      oldDelegate.tabBar != tabBar;
 }
 
 class _ProfileHeader extends StatelessWidget {
