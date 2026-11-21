@@ -26,7 +26,7 @@ class WelcomePage extends StatelessWidget {
                     color: AppColors.primary,
                   ),
                   const SizedBox(height: 16),
-                  const Text('CampusServices', style: AppTypography.logo),
+                  Text('CampusServices', style: AppTypography.logo),
                   const SizedBox(height: 12),
                   Text(
                     'Bienvenue sur CampusServices',
@@ -100,7 +100,7 @@ class WelcomePage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('CampusServices', style: AppTypography.logo),
+        Text('CampusServices', style: AppTypography.logo),
         const SizedBox(height: 20),
         Text(
           'Votre campus, vos services.',

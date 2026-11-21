@@ -116,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
+                        Text(
                           'CampusServices',
                           textAlign: TextAlign.center,
                           style: AppTypography.logo,

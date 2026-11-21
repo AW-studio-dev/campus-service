@@ -20,6 +20,20 @@ L'application repose sur des règles strictes pour garantir un écosystème sain
 *   **Demandes étudiantes** : Un espace dédié pour demander de l'aide scolaire ou chercher des partenaires de projet.
 *   **Messagerie privée** : Discussions directes et sécurisées entre membres.
 
+## Écrans Flutter disponibles
+
+L’application comprend les écrans d’authentification avec OTP, le fil social
+(création de posts, images, réactions, commentaires et favoris), les demandes
+d’aide, la recherche, les profils et leur édition, la messagerie, les
+notifications, les paramètres, les signalements, ainsi que le marketplace et
+les vitrines business (offres, avis et tableau de bord).
+
+La messagerie s’abonne aux nouveaux messages Supabase Realtime et actualise
+aussi la conversation périodiquement comme solution de repli. Pour une
+actualisation instantanée, activez `messages` dans la publication Realtime de
+Supabase. Les notifications apparaissent lorsque les triggers ou Edge
+Functions du backend les insèrent dans `notifications`.
+
 ## 🛠️ Stack Technique
 *   **Frontend** : Flutter Web (Dart)
 *   **Backend & Base de données** : Supabase (PostgreSQL)
@@ -35,6 +49,26 @@ L'application repose sur des règles strictes pour garantir un écosystème sain
 
 Le fichier `.env` est ignoré par Git. L’application initialise Supabase avant
 de démarrer et protège `/home` avec l’état de session Supabase.
+
+## Déploiement Cloudflare Pages
+
+Dans les paramètres du projet Cloudflare Pages, ajoutez les variables de build
+`SUPABASE_URL` et `SUPABASE_ANON_KEY` pour les environnements Production et
+Preview. Utilisez l’URL du projet Supabase et sa clé publique anon/publishable ;
+ne configurez jamais `service_role`.
+
+Configurez le répertoire racine sur `/`, puis utilisez la commande de build
+suivante afin de créer l’asset `.env` ignoré par Git avant la compilation :
+
+```bash
+printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > .env
+flutter pub get
+flutter build web --release --dart-define=SUPABASE_URL="$SUPABASE_URL" --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+```
+
+Le répertoire de sortie Cloudflare doit être `build/web`. Si le build échoue
+avec `flutter: command not found`, configurez un environnement de build qui
+installe le SDK Flutter avant d’exécuter ces commandes.
 
 ## Authentification et onboarding
 

@@ -3,10 +3,12 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/utils/image_upload_validation.dart';
+
 class AuthRepository {
   AuthRepository(this._client);
 
-  static const maxAvatarSizeBytes = 5 * 1024 * 1024;
+  static const maxAvatarSizeBytes = maxImageUploadSizeBytes;
   static const _uuid = Uuid();
 
   final SupabaseClient _client;
@@ -167,24 +169,7 @@ class AuthRepository {
   }
 
   static String? imageMimeType(Uint8List bytes) {
-    const pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-    if (bytes.length >= pngSignature.length) {
-      var isPng = true;
-      for (var index = 0; index < pngSignature.length; index++) {
-        if (bytes[index] != pngSignature[index]) {
-          isPng = false;
-          break;
-        }
-      }
-      if (isPng) return 'image/png';
-    }
-    if (bytes.length >= 3 &&
-        bytes[0] == 0xFF &&
-        bytes[1] == 0xD8 &&
-        bytes[2] == 0xFF) {
-      return 'image/jpeg';
-    }
-    return null;
+    return detectImageMimeType(bytes);
   }
 
   Future<List<LookupOption>> _loadWilayas() async {

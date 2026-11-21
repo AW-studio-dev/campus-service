@@ -3,10 +3,13 @@ import 'dart:typed_data';
 import 'package:campus_service/campus_services_app.dart';
 import 'package:campus_service/core/router/app_router.dart';
 import 'package:campus_service/core/providers/supabase_provider.dart';
+import 'package:campus_service/core/utils/image_upload_validation.dart';
 import 'package:campus_service/features/auth/data/auth_repository.dart';
 import 'package:campus_service/features/auth/presentation/auth_error_presenter.dart';
 import 'package:campus_service/features/auth/presentation/verify_otp_page.dart';
+import 'package:campus_service/features/feed/data/post_repository.dart';
 import 'package:campus_service/shared/widgets/custom_text_field.dart';
+import 'package:campus_service/shared/widgets/post_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +36,10 @@ void main() {
 
     final context = tester.element(find.byType(CampusServicesApp));
     final router = ProviderScope.containerOf(context).read(appRouterProvider);
+    router.go('/');
+    await tester.pumpAndSettle();
+    expect(find.text('Bienvenue sur CampusServices'), findsOneWidget);
+
     router.go('/login');
     await tester.pumpAndSettle();
     expect(find.text('Adresse e-mail'), findsOneWidget);
@@ -100,6 +107,63 @@ void main() {
       'image/jpeg',
     );
     expect(AuthRepository.imageMimeType(Uint8List.fromList([0, 1, 2])), isNull);
+  });
+
+  test('image uploads enforce JPEG/PNG signatures and the 5 MB limit', () {
+    final png = Uint8List.fromList([
+      0x89,
+      0x50,
+      0x4E,
+      0x47,
+      0x0D,
+      0x0A,
+      0x1A,
+      0x0A,
+    ]);
+    expect(isValidImageUpload(png), isTrue);
+    expect(isValidImageUpload(Uint8List.fromList([1, 2, 3])), isFalse);
+    final oversizedPng = Uint8List(5 * 1024 * 1024 + 1)
+      ..setRange(0, png.length, png);
+    expect(isValidImageUpload(oversizedPng), isFalse);
+  });
+
+  testWidgets('post card displays content and invokes its like action', (
+    tester,
+  ) async {
+    var likeCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PostCard(
+            post: FeedPost(
+              id: 'post-id',
+              authorId: 'author-id',
+              authorName: 'Étudiante',
+              avatarUrl: null,
+              body: 'Publication de test',
+              postType: 'general',
+              createdAt: DateTime.now(),
+              imageUrl: null,
+              likeCount: 2,
+              commentCount: 1,
+              isLikedByCurrentUser: false,
+              isSavedByCurrentUser: false,
+            ),
+            onLike: () async {
+              likeCount++;
+            },
+            onSave: () async {},
+            onCommentsChanged: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Publication de test'), findsOneWidget);
+    expect(find.text('2 J’aime'), findsOneWidget);
+    await tester.tap(find.text('J’aime'));
+    await tester.pumpAndSettle();
+    expect(likeCount, 1);
   });
 
   test(

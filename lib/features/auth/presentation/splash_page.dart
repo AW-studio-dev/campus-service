@@ -76,7 +76,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                   color: AppColors.primary,
                 ),
                 const SizedBox(height: 12),
-                const Text('CampusServices', style: AppTypography.logo),
+                Text('CampusServices', style: AppTypography.logo),
                 const SizedBox(height: 8),
                 Text(
                   'Your Campus, Your Services.',
