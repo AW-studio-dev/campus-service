@@ -25,6 +25,9 @@ import '../../features/messaging/presentation/inbox_page.dart';
 import '../../features/notifications/presentation/notifications_page.dart';
 import '../../features/search/presentation/search_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../features/ads/presentation/admin_dashboard_page.dart';
+import '../../features/ads/presentation/manage_ads_page.dart';
+import '../../features/ads/presentation/create_ad_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final supabase = ref.watch(supabaseClientProvider);
@@ -54,6 +57,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => MainLayout(child: child),
         routes: [
+          GoRoute(
+            path: '/admin',
+            builder: (context, state) => const AdminDashboardPage(),
+          ),
+          GoRoute(
+            path: '/admin/ads',
+            builder: (context, state) => const ManageAdsPage(),
+          ),
+          GoRoute(
+            path: '/admin/ads/create',
+            builder: (context, state) => const CreateAdPage(),
+          ),
           GoRoute(path: '/home', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/create-post',

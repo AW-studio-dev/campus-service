@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../ads/data/ad_repository.dart';
+
 class SearchRepository {
   SearchRepository(this._client);
 
@@ -13,6 +15,20 @@ class SearchRepository {
     if (term.length < 2) return const [];
     final pattern = '%${term.replaceAll('%', r'\%').replaceAll('_', r'\_')}%';
     final results = <SearchResult>[];
+    final searchBusinesses =
+        kind == 'all' || kind == 'business' || kind == 'product';
+    final campaignsByBusinessId = <String, AdCampaign>{};
+    if (searchBusinesses) {
+      final campaigns = await AdRepository(
+        _client,
+      ).fetchActiveBusinessCampaigns();
+      for (final campaign in campaigns) {
+        final businessId = campaign.businessId;
+        if (businessId != null) {
+          campaignsByBusinessId.putIfAbsent(businessId, () => campaign);
+        }
+      }
+    }
 
     if (kind == 'all' || kind == 'user') {
       final users = await _client
@@ -39,6 +55,7 @@ class SearchRepository {
           .from('posts')
           .select('id, author_id, body, profiles(display_name)')
           .eq('status', 'published')
+          .neq('post_type', 'sponsored')
           .ilike('body', pattern)
           .order('created_at', ascending: false)
           .limit(20);
@@ -68,16 +85,51 @@ class SearchRepository {
           .ilike('name', pattern)
           .limit(20);
       results.addAll(
-        businesses.map(
-          (row) => SearchResult(
-            id: row['id'] as String,
+        businesses.map((row) {
+          final id = row['id'] as String;
+          final campaign = campaignsByBusinessId[id];
+          return SearchResult(
+            id: id,
             type: 'business',
             title: row['name'] as String,
             description: row['description'] as String? ?? '',
             imageUrl: _publicUrl('business-media', row['logo_path'] as String?),
-            relatedId: row['id'] as String,
-          ),
-        ),
+            relatedId: id,
+            campaignId: campaign?.id,
+          );
+        }),
+      );
+    }
+
+    if (kind == 'all' || kind == 'product') {
+      final products = await _client
+          .from('business_products')
+          .select(
+            'id, business_id, title, description, cover_image_path, '
+            'businesses!inner(status)',
+          )
+          .eq('status', 'available')
+          .eq('businesses.status', 'published')
+          .ilike('title', pattern)
+          .order('created_at', ascending: false)
+          .limit(20);
+      results.addAll(
+        products.map((row) {
+          final businessId = row['business_id'] as String;
+          final campaign = campaignsByBusinessId[businessId];
+          return SearchResult(
+            id: row['id'] as String,
+            type: 'product',
+            title: row['title'] as String,
+            description: row['description'] as String? ?? '',
+            imageUrl: _publicUrl(
+              'business-media',
+              row['cover_image_path'] as String?,
+            ),
+            relatedId: businessId,
+            campaignId: campaign?.id,
+          );
+        }),
       );
     }
 
@@ -102,7 +154,10 @@ class SearchRepository {
       );
     }
 
-    return results;
+    return [
+      ...results.where((result) => result.isSponsored),
+      ...results.where((result) => !result.isSponsored),
+    ];
   }
 
   String? _publicUrl(String bucket, String? path) {
@@ -120,6 +175,7 @@ class SearchResult {
     required this.description,
     required this.imageUrl,
     required this.relatedId,
+    this.campaignId,
   });
 
   final String id;
@@ -128,6 +184,9 @@ class SearchResult {
   final String description;
   final String? imageUrl;
   final String relatedId;
+  final String? campaignId;
+
+  bool get isSponsored => campaignId != null;
 }
 
 class SearchFilter {

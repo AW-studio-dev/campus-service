@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/social_card.dart';
+import '../../ads/application/ad_providers.dart';
 import '../application/search_providers.dart';
 import '../data/search_repository.dart';
 
@@ -28,6 +29,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     ('user', 'Étudiants'),
     ('post', 'Publications'),
     ('business', 'Businesses'),
+    ('product', 'Produits'),
     ('request', 'Demandes'),
   ];
 
@@ -51,6 +53,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         context.go('/profile/${result.relatedId}');
       case 'business':
         context.go('/business/${result.relatedId}');
+      case 'product':
+        context.go('/marketplace/item/${result.id}?kind=product');
       case 'post':
         showDialog<void>(
           context: context,
@@ -102,6 +106,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ),
         );
     }
+  }
+
+  Future<void> _openTrackedResult(SearchResult result) async {
+    final campaignId = result.campaignId;
+    if (campaignId != null) {
+      try {
+        await ref
+            .read(adRepositoryProvider)
+            .recordEvent(campaignId: campaignId, eventType: 'click');
+      } on Exception {
+        _showMessage('Le clic sur l’annonce n’a pas pu être comptabilisé.');
+      }
+    }
+    if (mounted) _openResult(result);
   }
 
   @override
@@ -217,6 +235,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                         fontSize: 12,
                                       ),
                                     ),
+                                    if (item.isSponsored)
+                                      const Text(
+                                        'Sponsorisé',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
                                     if (item.description.isNotEmpty)
                                       Text(
                                         item.description,
@@ -227,7 +253,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 ),
                                 isThreeLine: item.description.isNotEmpty,
                                 trailing: const Icon(Icons.chevron_right),
-                                onTap: () => _openResult(item),
+                                onTap: () => _openTrackedResult(item),
                               ),
                             );
                           },
@@ -242,7 +268,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     'user' => 'Étudiant',
     'post' => 'Publication',
     'business' => 'Business',
+    'product' => 'Produit',
     'request' => 'Demande d’aide',
     _ => 'Résultat',
   };
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 }

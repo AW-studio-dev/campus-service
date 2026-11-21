@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/supabase_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../ads/presentation/sponsored_banner.dart';
+import '../../ads/presentation/sponsored_post_card.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/post_card.dart';
 import '../../../shared/widgets/social_card.dart';
@@ -66,6 +68,8 @@ class HomePage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
+        const SponsoredBanner(),
+        const SizedBox(height: 12),
         Expanded(
           child: posts.when(
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -88,7 +92,7 @@ class HomePage extends ConsumerWidget {
                           const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final post = items[index];
-                        return PostCard(
+                        final card = PostCard(
                           post: post,
                           onLike: () async {
                             final userId = ref
@@ -157,6 +161,9 @@ class HomePage extends ConsumerWidget {
                           onCommentsChanged: () =>
                               ref.invalidate(feedPostsProvider),
                         );
+                        return post.isSponsored
+                            ? SponsoredPostCard(post: post, child: card)
+                            : card;
                       },
                     ),
                   ),

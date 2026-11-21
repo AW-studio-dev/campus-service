@@ -13,6 +13,7 @@ import '../../features/messaging/application/messaging_providers.dart';
 import '../../features/notifications/application/notification_providers.dart';
 import '../../features/profile/application/profile_providers.dart';
 import '../../features/settings/application/settings_providers.dart';
+import '../../features/ads/application/ad_providers.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({required this.child, super.key});
@@ -195,6 +196,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   PreferredSizeWidget _buildHeader(BuildContext context) {
     final isPhone = MediaQuery.sizeOf(context).width < 768;
+    final canManageAds =
+        ref.watch(isAdminProvider).whenOrNull(data: (isAdmin) => isAdmin) ??
+        false;
     return AppBar(
       title: Row(
         mainAxisSize: MainAxisSize.min,
@@ -225,6 +229,12 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           onPressed: () => context.go('/notifications'),
           icon: const Icon(Icons.notifications_none_outlined),
         ),
+        if (canManageAds)
+          IconButton(
+            tooltip: 'Administration',
+            onPressed: () => context.go('/admin'),
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+          ),
         IconButton(
           tooltip: 'Paramètres',
           onPressed: () => context.go('/settings'),
@@ -279,10 +289,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'CampusServices',
-                    style: AppTypography.logo,
-                  ),
+                  child: Text('CampusServices', style: AppTypography.logo),
                 ),
               ],
             ),
@@ -329,7 +336,18 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     return Center(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
-        child: widget.child,
+        child: Column(
+          children: [
+            Expanded(child: widget.child),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Text(
+                'Développé par Hami Wissem @ 2026',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

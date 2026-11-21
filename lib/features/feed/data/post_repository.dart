@@ -18,6 +18,7 @@ class PostRepository {
     List<String>? onlyPostIds,
   }) async {
     if (onlyPostIds != null && onlyPostIds.isEmpty) return const [];
+    final includeSponsored = authorId == null && onlyPostIds == null;
     var query = _client
         .from('posts')
         .select(
@@ -26,13 +27,53 @@ class PostRepository {
           'post_media(storage_path, media_type, sort_order)',
         )
         .eq('status', 'published');
+    if (includeSponsored) {
+      query = query.neq('post_type', 'sponsored');
+    }
     if (authorId != null) {
       query = query.eq('author_id', authorId);
     }
     if (onlyPostIds != null) {
       query = query.inFilter('id', onlyPostIds);
     }
-    final rows = await query.order('created_at', ascending: false).limit(50);
+    final normalRows = await query
+        .order('created_at', ascending: false)
+        .limit(50);
+
+    final sponsoredCampaignRows = includeSponsored
+        ? await _fetchLiveSponsoredCampaignRows()
+        : <Map<String, dynamic>>[];
+    final campaignIds = sponsoredCampaignRows
+        .map((row) => row['post_id'] as String?)
+        .whereType<String>()
+        .toList();
+    final sponsoredPostRows = campaignIds.isEmpty
+        ? <Map<String, dynamic>>[]
+        : await _client
+              .from('posts')
+              .select(
+                'id, author_id, body, post_type, created_at, '
+                'profiles(display_name, avatar_path), '
+                'post_media(storage_path, media_type, sort_order)',
+              )
+              .eq('status', 'published')
+              .eq('post_type', 'sponsored')
+              .inFilter('id', campaignIds);
+    final sponsoredPostsById = {
+      for (final row in sponsoredPostRows) row['id'] as String: row,
+    };
+    final campaignsByPostId = {
+      for (final campaign in sponsoredCampaignRows)
+        if (campaign['post_id'] is String)
+          campaign['post_id'] as String: campaign,
+    };
+    final rows = <Map<String, dynamic>>[
+      for (final campaign in sponsoredCampaignRows)
+        if (campaign['post_id'] is String &&
+            sponsoredPostsById.containsKey(campaign['post_id']))
+          sponsoredPostsById[campaign['post_id']]!,
+      ...normalRows,
+    ];
 
     if (rows.isEmpty) return const [];
 
@@ -95,6 +136,8 @@ class PostRepository {
       final imagePath = media.isEmpty ? null : media.first['storage_path'];
       final avatarPath = profile['avatar_path'] as String?;
       final postId = row['id'] as String;
+      final sponsoredCampaign = campaignsByPostId[postId];
+      final campaignImagePath = sponsoredCampaign?['creative_path'] as String?;
 
       return FeedPost(
         id: postId,
@@ -104,12 +147,36 @@ class PostRepository {
         body: row['body'] as String,
         postType: row['post_type'] as String,
         createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
-        imageUrl: _publicUrl('post-media', imagePath as String?),
+        imageUrl: campaignImagePath == null
+            ? _publicUrl('post-media', imagePath as String?)
+            : _publicUrl('ads-media', campaignImagePath),
         likeCount: likeCounts[postId] ?? 0,
         commentCount: commentCounts[postId] ?? 0,
         isLikedByCurrentUser: likedByCurrentUser.contains(postId),
         isSavedByCurrentUser: savedPostIds.contains(postId),
+        campaignId: sponsoredCampaign?['id'] as String?,
+        destinationUrl: sponsoredCampaign?['destination_url'] as String?,
       );
+    }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchLiveSponsoredCampaignRows() async {
+    final rows = await _client
+        .from('ad_campaigns')
+        .select(
+          'id, post_id, creative_path, destination_url, starts_at, ends_at',
+        )
+        .eq('status', 'active')
+        .eq('placement', 'sponsored_post')
+        .not('post_id', 'is', null)
+        .order('created_at', ascending: false)
+        .limit(20);
+    final now = DateTime.now();
+    return rows.where((row) {
+      final startsAt = DateTime.tryParse(row['starts_at'] as String? ?? '');
+      final endsAt = DateTime.tryParse(row['ends_at'] as String? ?? '');
+      return (startsAt == null || !startsAt.isAfter(now)) &&
+          (endsAt == null || endsAt.isAfter(now));
     }).toList();
   }
 
@@ -295,6 +362,8 @@ class FeedPost {
     required this.commentCount,
     required this.isLikedByCurrentUser,
     required this.isSavedByCurrentUser,
+    this.campaignId,
+    this.destinationUrl,
   });
 
   final String id;
@@ -309,6 +378,10 @@ class FeedPost {
   final int commentCount;
   final bool isLikedByCurrentUser;
   final bool isSavedByCurrentUser;
+  final String? campaignId;
+  final String? destinationUrl;
+
+  bool get isSponsored => campaignId != null;
 }
 
 class PostComment {
