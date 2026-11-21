@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -35,23 +34,18 @@ class AuthRepository {
     );
   }
 
-  Future<AuthResponse> verifySignupOtp({
-    required String email,
-    required String token,
-  }) {
-    return _client.auth.verifyOTP(
-      type: OtpType.signup,
-      email: email.trim(),
-      token: token.trim(),
+  Future<void> sendPasswordReset(String email) {
+    final redirectTo = kIsWeb
+        ? Uri.base.replace(fragment: '/reset-password').toString()
+        : null;
+    return _client.auth.resetPasswordForEmail(
+      email.trim(),
+      redirectTo: redirectTo,
     );
   }
 
-  Future<void> resendSignupOtp(String email) async {
-    await _client.auth.resend(type: OtpType.signup, email: email.trim());
-  }
-
-  Future<void> sendPasswordReset(String email) {
-    return _client.auth.resetPasswordForEmail(email.trim());
+  Future<void> updatePassword(String password) async {
+    await _client.auth.updateUser(UserAttributes(password: password));
   }
 
   Future<bool> isProfileComplete(String userId) async {

@@ -8,7 +8,6 @@ import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/social_card.dart';
 import '../application/auth_providers.dart';
 import 'auth_error_presenter.dart';
-import 'verify_otp_page.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -51,16 +50,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
       if (!mounted) return;
       if (response.session == null) {
-        context.go(
-          '/verify-otp',
-          extra: VerifyOtpRouteArgs(
-            email: _emailController.text.trim(),
-            startResendCooldown: true,
-          ),
+        _showError(
+          'Supabase exige encore la confirmation par e-mail. Pour accéder '
+          'directement, désactivez « Confirm email » dans Auth > Providers > '
+          'Email, puis réessayez.',
         );
-      } else {
-        context.go('/splash');
+        return;
       }
+      context.go('/splash');
     } on AuthException catch (error) {
       _showError(authErrorMessage(error, operation: AuthOperation.signUp));
     } finally {

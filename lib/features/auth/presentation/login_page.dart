@@ -10,7 +10,6 @@ import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/social_card.dart';
 import '../application/auth_providers.dart';
 import 'auth_error_presenter.dart';
-import 'verify_otp_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -47,12 +46,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (mounted) context.go('/splash');
     } on AuthException catch (error) {
       if (error.code == 'email_not_confirmed') {
-        if (mounted) {
-          context.go(
-            '/verify-otp',
-            extra: VerifyOtpRouteArgs(email: _emailController.text.trim()),
-          );
-        }
+        _showMessage(
+          'Cette adresse doit encore être confirmée. Pour l’accès sans '
+          'confirmation, désactivez « Confirm email » dans Supabase et '
+          'confirmez les comptes déjà créés depuis Authentication > Users.',
+        );
         return;
       }
       _showMessage(authErrorMessage(error, operation: AuthOperation.signIn));

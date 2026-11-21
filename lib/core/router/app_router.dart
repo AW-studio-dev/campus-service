@@ -1,13 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../layout/main_layout.dart';
 import '../providers/supabase_provider.dart';
 import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/onboarding_page.dart';
 import '../../features/auth/presentation/register_page.dart';
+import '../../features/auth/presentation/reset_password_page.dart';
 import '../../features/auth/presentation/splash_page.dart';
-import '../../features/auth/presentation/verify_otp_page.dart';
 import '../../features/auth/presentation/welcome_page.dart';
 import '../../features/feed/presentation/create_post_page.dart';
 import '../../features/feed/presentation/home_page.dart';
@@ -42,17 +43,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterPage(),
       ),
       GoRoute(
-        path: '/verify-otp',
-        builder: (context, state) {
-          final email = state.extra;
-          if (email is VerifyOtpRouteArgs) {
-            return VerifyOtpPage(
-              email: email.email,
-              startResendCooldown: email.startResendCooldown,
-            );
-          }
-          return const VerifyOtpPage(email: '');
-        },
+        path: '/reset-password',
+        builder: (context, state) => const ResetPasswordPage(),
       ),
       GoRoute(
         path: '/onboarding',
@@ -146,9 +138,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/welcome',
         '/login',
         '/register',
-        '/verify-otp',
+        '/reset-password',
       };
-      const authRoutes = {'/welcome', '/login', '/register', '/verify-otp'};
+      const authRoutes = {'/welcome', '/login', '/register'};
 
       if (!isAuthenticated && !publicRoutes.contains(location)) {
         return '/welcome';
@@ -162,6 +154,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   ref.listen(authStateChangesProvider, (previous, next) {
     router.refresh();
+    next.whenData((authState) {
+      if (authState.event == AuthChangeEvent.passwordRecovery) {
+        router.go('/reset-password');
+      }
+    });
   });
   ref.onDispose(router.dispose);
 

@@ -22,11 +22,13 @@ L'application repose sur des règles strictes pour garantir un écosystème sain
 
 ## Écrans Flutter disponibles
 
-L’application comprend les écrans d’authentification avec OTP, le fil social
-(création de posts, images, réactions, commentaires et favoris), les demandes
-d’aide, la recherche, les profils et leur édition, la messagerie, les
-notifications, les paramètres, les signalements, ainsi que le marketplace et
-les vitrines business (offres, avis et tableau de bord).
+L’application comprend l’inscription avec ouverture de session directe lorsque
+la confirmation e-mail est désactivée dans Supabase, la connexion, la
+réinitialisation du mot de passe, le fil social (posts, images, réactions,
+commentaires et favoris), les demandes d’aide, la recherche, les profils et
+leur édition, la messagerie, les notifications, les paramètres, les
+signalements, ainsi que le marketplace et les vitrines business (offres, avis
+et tableau de bord).
 
 La messagerie s’abonne aux nouveaux messages Supabase Realtime et actualise
 aussi la conversation périodiquement comme solution de repli. Pour une
@@ -82,10 +84,22 @@ compte connecté.
 Les avatars sont limités aux images JPEG/PNG de 5 Mo maximum et sont envoyés
 dans le bucket `avatars` avec un chemin unique par utilisateur.
 
-La confirmation par e-mail est activée dans Supabase : l’inscription conduit à
-une page de vérification par code OTP à six chiffres (template e-mail utilisant
-`{{ .Token }}`). L’application limite les renvois à un par minute et affiche un
-message adapté si Supabase renvoie `over_email_send_rate_limit`.
+Pour ouvrir une session immédiatement après l’inscription, désactivez
+`Authentication > Providers > Email > Confirm email` dans Supabase. Dans ce
+mode, Supabase doit retourner une session après `signUp`; l’application envoie
+alors l’utilisateur vers le splash puis l’onboarding si son profil est
+incomplet. Si Supabase ne retourne pas de session, l’application indique que la
+confirmation est encore requise au lieu de prétendre contourner Auth.
+
+Les utilisateurs déjà créés sans confirmation peuvent devoir être confirmés
+depuis `Authentication > Users`. Désactiver la confirmation signifie que
+Supabase ne valide plus la propriété de l’adresse e-mail lors de l’inscription.
+
+La réinitialisation du mot de passe redirige vers l’adresse courante de
+l’application, sur `/#/reset-password`. Ajoutez cette URL de redirection
+Firebase, ainsi que l’URL locale de développement si nécessaire, dans
+`Authentication > URL Configuration > Redirect URLs` de Supabase. L’événement
+`passwordRecovery` ouvre le formulaire de nouveau mot de passe.
 
 Pour le développement et la production, configurez `Auth > URL Configuration`
 avec l’URL exacte de l’application et ajoutez-la aux URL de redirection

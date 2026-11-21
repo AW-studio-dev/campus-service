@@ -6,7 +6,6 @@ import 'package:campus_service/core/providers/supabase_provider.dart';
 import 'package:campus_service/core/utils/image_upload_validation.dart';
 import 'package:campus_service/features/auth/data/auth_repository.dart';
 import 'package:campus_service/features/auth/presentation/auth_error_presenter.dart';
-import 'package:campus_service/features/auth/presentation/verify_otp_page.dart';
 import 'package:campus_service/features/feed/data/post_repository.dart';
 import 'package:campus_service/shared/widgets/custom_text_field.dart';
 import 'package:campus_service/shared/widgets/post_card.dart';
@@ -64,6 +63,35 @@ void main() {
       findsNothing,
     );
     expect(find.text('Bienvenue sur CampusServices'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    client.auth.stopAutoRefresh();
+  });
+
+  testWidgets('password reset route handles an expired recovery link', (
+    tester,
+  ) async {
+    final client = SupabaseClient(
+      'https://example.supabase.co',
+      'test-anon-key',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [supabaseClientProvider.overrideWithValue(client)],
+        child: const CampusServicesApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(CampusServicesApp));
+    ProviderScope.containerOf(
+      context,
+    ).read(appRouterProvider).go('/reset-password');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lien invalide ou expiré'), findsOneWidget);
+    expect(find.text('Retour à la connexion'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     client.auth.stopAutoRefresh();
@@ -195,29 +223,5 @@ void main() {
 
     expect(message, contains('une heure'));
     expect(message, isNot(contains('private backend response')));
-  });
-
-  testWidgets('OTP page starts with resend disabled for 60 seconds', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ProviderScope(
-          child: const VerifyOtpPage(
-            email: 'student@example.com',
-            startResendCooldown: true,
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(
-      find.text('Un code de vérification a été envoyé à student@example.com.'),
-      findsOneWidget,
-    );
-    expect(find.text('Renvoyer dans 01:00'), findsOneWidget);
-
-    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

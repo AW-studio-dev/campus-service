@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum AuthOperation { signIn, signUp, verifyOtp, resendOtp, passwordReset }
+enum AuthOperation { signIn, signUp, passwordReset, updatePassword }
 
 String authErrorMessage(
   AuthException error, {
@@ -26,10 +26,7 @@ String authErrorMessage(
       AuthOperation.passwordReset =>
         'Impossible de joindre le serveur. Vérifiez votre connexion et '
             'réessayez.',
-      AuthOperation.verifyOtp =>
-        'Impossible de joindre le serveur. Vérifiez votre connexion et '
-            'réessayez.',
-      AuthOperation.resendOtp =>
+      AuthOperation.updatePassword =>
         'Impossible de joindre le serveur. Vérifiez votre connexion et '
             'réessayez.',
     };
@@ -49,23 +46,18 @@ String authErrorMessage(
     'signup_disabled' => 'Les inscriptions sont désactivées côté serveur.',
     'weak_password' =>
       'Mot de passe trop faible. Choisissez un mot de passe plus robuste.',
-    'otp_expired' => 'Code invalide ou expiré. Demandez un nouveau code.',
     'validation_failed' =>
-      operation == AuthOperation.verifyOtp
-          ? 'Code invalide. Vérifiez les six chiffres et réessayez.'
-          : 'Certaines informations sont invalides. Vérifiez les champs.',
+      'Certaines informations sont invalides. Vérifiez les champs.',
     _ => switch (operation) {
       AuthOperation.signIn =>
         'Connexion impossible. Vérifiez vos identifiants et la confirmation '
             'de votre adresse e-mail.',
       AuthOperation.signUp =>
         'Création du compte impossible pour le moment. Réessayez plus tard.',
-      AuthOperation.verifyOtp =>
-        'Code invalide. Vérifiez les six chiffres et réessayez.',
-      AuthOperation.resendOtp =>
-        'Impossible de renvoyer le code pour le moment.',
       AuthOperation.passwordReset =>
         'Impossible d’envoyer le lien pour le moment.',
+      AuthOperation.updatePassword =>
+        'Impossible de modifier le mot de passe. Réessayez.',
     },
   };
 
