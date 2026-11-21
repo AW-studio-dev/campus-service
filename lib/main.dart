@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'campus_services_app.dart';
+import 'core/config/app_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,6 +51,17 @@ Future<void> main() async {
     );
     return;
   }
+
+  Supabase.instance.client.auth.onAuthStateChange.listen((authState) {
+    if (authState.event == AuthChangeEvent.passwordRecovery) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = AppConfig.navigatorKey.currentContext;
+        if (context != null) {
+          GoRouter.of(context).go('/reset-password');
+        }
+      });
+    }
+  });
 
   runApp(const ProviderScope(child: CampusServicesApp()));
 }

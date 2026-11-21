@@ -22,11 +22,11 @@ class ProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
-  bool _isFollowing = false;
+  bool _isFollowingBusy = false;
 
   Future<void> _toggleFollow(ProfileRecord profile, String viewerId) async {
-    if (_isFollowing) return;
-    setState(() => _isFollowing = true);
+    if (_isFollowingBusy) return;
+    setState(() => _isFollowingBusy = true);
     try {
       await ref
           .read(profileRepositoryProvider)
@@ -36,7 +36,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     } on Exception {
       _showMessage('Impossible de modifier l’abonnement.');
     } finally {
-      if (mounted) setState(() => _isFollowing = false);
+      if (mounted) setState(() => _isFollowingBusy = false);
     }
   }
 
@@ -58,7 +58,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       ),
       data: (record) {
         if (record == null) {
-          return const Center(child: Text('Ce profil est introuvable.'));
+          return const Center(child: Text('Utilisateur introuvable.'));
         }
         final isOwner = record.id == viewerId;
         final posts = ref.watch(userPostsProvider(record.id));
@@ -69,7 +69,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               _ProfileHeader(
                 profile: record,
                 isOwner: isOwner,
-                isFollowingBusy: _isFollowing,
+                isFollowingBusy: _isFollowingBusy,
                 onEdit: () => context.go('/profile/edit'),
                 onFollow: isOwner || viewerId == null
                     ? null
@@ -233,8 +233,8 @@ class _ProfileHeader extends StatelessWidget {
                                 ),
                                 label: Text(
                                   profile.isFollowing
-                                      ? 'Ne plus suivre'
-                                      : 'Suivre',
+                                      ? 'Abonné'
+                                      : 'S\'abonner',
                                 ),
                               ),
                               OutlinedButton.icon(

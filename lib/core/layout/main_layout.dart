@@ -195,7 +195,22 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   PreferredSizeWidget _buildHeader(BuildContext context) {
     return AppBar(
-      title: Text('CampusServices', style: AppTypography.logo),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.asset(
+              'logo.jpeg',
+              width: 38,
+              height: 38,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text('CampusServices', style: AppTypography.logo),
+        ],
+      ),
       actions: [
         IconButton(
           tooltip: 'Marketplace',
@@ -246,6 +261,29 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    'logo.jpeg',
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'CampusServices',
+                    style: AppTypography.logo,
+                  ),
+                ),
+              ],
+            ),
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text(

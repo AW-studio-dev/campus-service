@@ -125,7 +125,7 @@ class ProductDetailPage extends ConsumerWidget {
                         InkWell(
                           borderRadius: BorderRadius.circular(10),
                           onTap: () =>
-                              context.go('/business/${item.businessId}'),
+                              context.go('/profile/${item.businessOwnerId}'),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Row(

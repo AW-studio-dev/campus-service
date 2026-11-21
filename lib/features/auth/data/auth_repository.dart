@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/image_upload_validation.dart';
+import '../../../core/config/app_config.dart';
 
 class AuthRepository {
   AuthRepository(this._client);
@@ -36,7 +37,7 @@ class AuthRepository {
 
   Future<void> sendPasswordReset(String email) {
     final redirectTo = kIsWeb
-        ? Uri.base.replace(fragment: '/reset-password').toString()
+        ? AppConfig.passwordResetUrl
         : null;
     return _client.auth.resetPasswordForEmail(
       email.trim(),

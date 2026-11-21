@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/providers/supabase_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/primary_button.dart';
@@ -176,7 +177,7 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
             const SizedBox(height: 20),
             TextFormField(
               controller: _nameController,
-              onChanged: _updateSlug,
+              onChanged: (name) => setState(() => _updateSlug(name)),
               maxLength: 80,
               textCapitalization: TextCapitalization.words,
               validator: _validateName,
@@ -185,12 +186,20 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _slugController,
-              onChanged: (_) => _isSlugEdited = true,
+              onChanged: (_) => setState(() => _isSlugEdited = true),
               validator: _validateSlug,
               decoration: const InputDecoration(
                 labelText: 'Lien de la vitrine',
-                prefixText: 'campusservices.dz/',
+                prefixText: '',
                 helperText: 'Ex. atelier-etudiant',
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Lien complet : ${AppConfig.businessUrl(_slugController.text.trim())}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
               ),
             ),
             const SizedBox(height: 16),
