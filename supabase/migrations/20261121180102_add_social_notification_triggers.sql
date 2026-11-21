@@ -1,6 +1,8 @@
+-- ============================================================================
 -- Notifications automatiques pour les actions sociales CampusServices.
--- Ces fonctions s'executent avec les droits du proprietaire de la fonction.
+-- ============================================================================
 
+-- 1. Notification : Nouvel abonné (Follow)
 create or replace function public.notify_new_follower()
 returns trigger
 language plpgsql
@@ -23,7 +25,9 @@ create trigger trg_notify_new_follower
 after insert on public.follows
 for each row execute function public.notify_new_follower();
 
+-- ============================================================================
 
+-- 2. Notification : Nouveau message
 create or replace function public.notify_new_message()
 returns trigger
 language plpgsql
@@ -52,7 +56,9 @@ create trigger trg_notify_new_message
 after insert on public.messages
 for each row execute function public.notify_new_message();
 
+-- ============================================================================
 
+-- 3. Notification : Nouveau commentaire
 create or replace function public.notify_new_comment()
 returns trigger
 language plpgsql
@@ -77,7 +83,7 @@ begin
         'actor_id', new.author_id
       )
     );
-  end;
+  end if; -- ✅ CORRIGÉ ICI
 
   return new;
 end;
@@ -88,7 +94,9 @@ create trigger trg_notify_new_comment
 after insert on public.comments
 for each row execute function public.notify_new_comment();
 
+-- ============================================================================
 
+-- 4. Notification : Nouvelle réaction (Like)
 create or replace function public.notify_new_reaction()
 returns trigger
 language plpgsql
@@ -113,7 +121,7 @@ begin
         'reaction_type', new.reaction_type
       )
     );
-  end;
+  end if; -- ✅ CORRIGÉ ICI
 
   return new;
 end;
@@ -124,7 +132,9 @@ create trigger trg_notify_new_reaction
 after insert on public.reactions
 for each row execute function public.notify_new_reaction();
 
+-- ============================================================================
 
+-- 5. Notification : Changement de statut d'une demande (Service Request)
 create or replace function public.notify_request_status_change()
 returns trigger
 language plpgsql
@@ -143,7 +153,7 @@ begin
         'new_status', new.status
       )
     );
-  end;
+  end if; -- ✅ CORRIGÉ ICI
 
   return new;
 end;
@@ -154,7 +164,9 @@ create trigger trg_notify_request_status_change
 after update of status on public.service_requests
 for each row execute function public.notify_request_status_change();
 
+-- ============================================================================
 
+-- 6. Notification : Nouveau post pour les abonnés
 create or replace function public.notify_new_post_to_followers()
 returns trigger
 language plpgsql
