@@ -64,48 +64,84 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+        bottom: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
               children: [
-                const Icon(
-                  Icons.school_outlined,
-                  size: 52,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(height: 12),
-                Text('CampusServices', style: AppTypography.logo),
-                const SizedBox(height: 8),
-                Text(
-                  'Your Campus, Your Services.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 240,
+                            height: 130,
+                            child: Image.asset(
+                              'logo.png',
+                              fit: BoxFit.cover,
+                              alignment: Alignment.topCenter,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text.rich(
+                            TextSpan(
+                              style: AppTypography.logo.copyWith(fontSize: 28),
+                              children: const [
+                                TextSpan(text: 'Campus'),
+                                TextSpan(
+                                  text: 'Services',
+                                  style: TextStyle(color: AppColors.accent),
+                                ),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Connecter · Échanger · Grandir',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: AppColors.textSecondary),
+                          ),
+                          if (_hasError) ...[
+                            const SizedBox(height: 24),
+                            const Text(
+                              'Impossible de vérifier votre profil. Réessayez.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            PrimaryButton(
+                              label: 'Réessayer',
+                              onPressed: _retry,
+                              expand: false,
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 24),
+                            const SizedBox.square(
+                              dimension: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                if (_hasError) ...[
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Impossible de vérifier votre profil. Réessayez.',
-                    textAlign: TextAlign.center,
+                SizedBox(
+                  width: double.infinity,
+                  height: constraints.maxHeight * 0.36,
+                  child: Image.asset(
+                    'university_algeria.png',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
                   ),
-                  const SizedBox(height: 12),
-                  PrimaryButton(
-                    label: 'Réessayer',
-                    onPressed: _retry,
-                    expand: false,
-                  ),
-                ] else ...[
-                  const SizedBox(height: 24),
-                  const SizedBox.square(
-                    dimension: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ],
+                ),
               ],
-            ),
-          ),
+            );
+          },
         ),
       ),
     );

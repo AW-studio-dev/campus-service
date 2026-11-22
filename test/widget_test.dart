@@ -32,6 +32,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Bienvenue sur CampusServices'), findsOneWidget);
+    expect(find.text('Votre communauté étudiante en Algérie'), findsOneWidget);
+    expect(find.text("S'inscrire"), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
 
     final context = tester.element(find.byType(CampusServicesApp));
     final router = ProviderScope.containerOf(context).read(appRouterProvider);
@@ -39,11 +42,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Bienvenue sur CampusServices'), findsOneWidget);
 
-    router.go('/login');
+    await tester.tap(find.text('Se connecter'));
     await tester.pumpAndSettle();
     expect(find.text('Adresse e-mail'), findsOneWidget);
 
-    router.go('/register');
+    router.go('/welcome');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("S'inscrire"));
     await tester.pumpAndSettle();
     expect(find.text('Confirmer le mot de passe'), findsOneWidget);
     final registerButton = find.widgetWithText(
