@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/supabase_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -284,6 +285,20 @@ class _AddOfferDialogState extends ConsumerState<_AddOfferDialog> {
             imageBytes: _imageBytes,
           );
       if (mounted) Navigator.of(context).pop(true);
+    } on StorageException catch (error) {
+      debugPrint(
+        'Business offer image upload failed '
+        '(HTTP ${error.statusCode ?? 'unknown'}): ${error.error}',
+      );
+      _message(_businessStorageErrorMessage(error.statusCode));
+    } on PostgrestException catch (error) {
+      debugPrint(
+        'Business offer save failed (code ${error.code ?? 'unknown'})',
+      );
+      _message(
+        'Supabase n’a pas pu enregistrer cette offre '
+        '(code ${error.code ?? 'inconnu'}).',
+      );
     } on InvalidBusinessImageException {
       _message('L’image doit être JPEG ou PNG et faire 5 Mo maximum.');
     } on Exception {
@@ -475,6 +490,20 @@ class _BusinessBrandingDialogState
             coverBytes: _coverBytes,
           );
       if (mounted) Navigator.of(context).pop(true);
+    } on StorageException catch (error) {
+      debugPrint(
+        'Business branding image upload failed '
+        '(HTTP ${error.statusCode ?? 'unknown'}): ${error.error}',
+      );
+      _message(_businessStorageErrorMessage(error.statusCode));
+    } on PostgrestException catch (error) {
+      debugPrint(
+        'Business branding update failed (code ${error.code ?? 'unknown'})',
+      );
+      _message(
+        'Supabase n’a pas pu mettre à jour la vitrine '
+        '(code ${error.code ?? 'inconnu'}). Vérifiez les droits du business.',
+      );
     } on InvalidBusinessImageException {
       _message('Les images doivent être JPEG ou PNG et faire 5 Mo maximum.');
     } on Exception {
@@ -560,6 +589,23 @@ class _BusinessBrandingDialogState
       ],
     );
   }
+}
+
+String _businessStorageErrorMessage(String? statusCode) {
+  return switch (statusCode) {
+    '401' || '403' =>
+      'Supabase refuse l’envoi. Vérifiez les règles d’accès au stockage '
+          'business-media.',
+    '404' =>
+      'Le stockage business-media est introuvable. Appliquez les migrations '
+          'Supabase.',
+    '413' => 'L’image dépasse la limite autorisée par le stockage.',
+    '400' =>
+      'Supabase refuse le format de cette image. Utilisez un JPG ou PNG.',
+    _ =>
+      'Échec de l’envoi vers Supabase (HTTP ${statusCode ?? 'inconnu'}). '
+          'Vérifiez la connexion et le stockage.',
+  };
 }
 
 class _DashboardMessage extends StatelessWidget {

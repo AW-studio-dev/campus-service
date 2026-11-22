@@ -33,9 +33,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final supabase = ref.watch(supabaseClientProvider);
   final router = GoRouter(
     navigatorKey: AppConfig.navigatorKey,
-    initialLocation: '/splash',
+    initialLocation: '/welcome',
     routes: [
-      GoRoute(path: '/', redirect: (context, state) => '/splash'),
+      GoRoute(path: '/', redirect: (context, state) => '/welcome'),
       GoRoute(path: '/splash', builder: (context, state) => const SplashPage()),
       GoRoute(
         path: '/welcome',

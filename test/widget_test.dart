@@ -18,6 +18,11 @@ void main() {
   testWidgets('unauthenticated users are redirected from private routes', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final client = SupabaseClient(
       'https://example.supabase.co',
       'test-anon-key',
@@ -32,12 +37,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Bienvenue sur CampusServices'), findsOneWidget);
-    expect(find.text('Votre communauté étudiante en Algérie'), findsOneWidget);
+    expect(
+      find.text(
+        'Une plateforme dédiée aux étudiants en Algérie pour découvrir, '
+        'partager et accéder à des services au sein de leur communauté '
+        'universitaire.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text("S'inscrire"), findsOneWidget);
-    expect(find.byType(Image), findsOneWidget);
+    expect(find.byType(Image), findsNWidgets(2));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == 'logo.png',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'university_algeria.png' &&
+            widget.fit == BoxFit.cover,
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('onboarding-dot-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('onboarding-dot-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('onboarding-dot-2')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.drag(
+      find.byKey(const ValueKey('welcome-carousel')),
+      const Offset(-320, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Connecte-toi avec ta communauté'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('onboarding-dot-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('Développe tes projets'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('onboarding-dot-0')));
+    await tester.pumpAndSettle();
+    expect(find.text('Bienvenue sur CampusServices'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(1280, 900);
+    await tester.pumpAndSettle();
+    expect(find.text('Bienvenue sur CampusServices'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
     final context = tester.element(find.byType(CampusServicesApp));
     final router = ProviderScope.containerOf(context).read(appRouterProvider);
+    expect(router.routeInformationProvider.value.uri.path, '/welcome');
     router.go('/');
     await tester.pumpAndSettle();
     expect(find.text('Bienvenue sur CampusServices'), findsOneWidget);
