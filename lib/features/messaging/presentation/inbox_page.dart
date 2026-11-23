@@ -80,17 +80,41 @@ class InboxPage extends ConsumerWidget {
                               name: item.displayName,
                               size: 48,
                             ),
-                            title: Text(
-                              item.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: item.unreadCount > 0
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                if (item.unreadCount > 0)
+                                  Badge(
+                                    label: Text(
+                                      item.unreadCount > 99
+                                          ? '99+'
+                                          : '${item.unreadCount}',
+                                    ),
+                                  ),
+                              ],
                             ),
                             subtitle: Text(
                               item.lastMessage,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
+                              style: TextStyle(
+                                color: item.unreadCount > 0
+                                    ? AppColors.textPrimary
+                                    : AppColors.textSecondary,
+                                fontWeight: item.unreadCount > 0
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
                               ),
                             ),
                             trailing: item.lastMessageAt == null

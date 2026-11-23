@@ -105,7 +105,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/profile',
-            builder: (context, state) => const ProfilePage(),
+            builder: (context, state) =>
+                ProfilePage(initialTab: state.uri.queryParameters['tab']),
           ),
           GoRoute(
             path: '/profile/edit',

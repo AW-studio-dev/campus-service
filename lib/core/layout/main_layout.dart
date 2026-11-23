@@ -41,10 +41,12 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   @override
   void initState() {
     super.initState();
-    _notificationRefreshTimer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => ref.invalidate(unreadNotificationsCountProvider),
-    );
+    _notificationRefreshTimer = Timer.periodic(const Duration(seconds: 20), (
+      _,
+    ) {
+      ref.invalidate(unreadNotificationsCountProvider);
+      ref.invalidate(unreadMessagesCountProvider);
+    });
   }
 
   Future<void> _signOut() async {
@@ -73,6 +75,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     ref.invalidate(notificationsProvider);
     ref.invalidate(notificationSettingsProvider);
     ref.invalidate(unreadNotificationsCountProvider);
+    ref.invalidate(unreadMessagesCountProvider);
   }
 
   @override
@@ -216,6 +219,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   PreferredSizeWidget _buildHeader(BuildContext context) {
     final isPhone = MediaQuery.sizeOf(context).width < 768;
     final unreadCount = ref.watch(unreadNotificationsCountProvider);
+    final unreadMessages = ref.watch(unreadMessagesCountProvider);
     final canManageAds =
         ref.watch(isAdminProvider).whenOrNull(data: (isAdmin) => isAdmin) ??
         false;
@@ -243,6 +247,19 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           tooltip: 'Marketplace',
           onPressed: () => context.go('/marketplace'),
           icon: const Icon(Icons.storefront_outlined),
+        ),
+        IconButton(
+          tooltip: 'Messages',
+          onPressed: () => context.go('/messages'),
+          icon: unreadMessages.when(
+            loading: () => const Icon(Icons.chat_bubble_outline),
+            error: (error, stackTrace) => const Icon(Icons.chat_bubble_outline),
+            data: (count) => Badge(
+              isLabelVisible: count > 0,
+              label: Text(count > 99 ? '99+' : '$count'),
+              child: const Icon(Icons.chat_bubble_outline),
+            ),
+          ),
         ),
         IconButton(
           tooltip: 'Notifications',

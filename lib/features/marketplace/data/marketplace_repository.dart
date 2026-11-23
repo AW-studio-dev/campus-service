@@ -10,6 +10,14 @@ class MarketplaceRepository {
 
   static const _uuid = Uuid();
 
+  static const _offerStatuses = {
+    'available',
+    'unavailable',
+    'reserved',
+    'closed',
+    'archived',
+  };
+
   final SupabaseClient _client;
 
   Future<List<MarketplaceCategory>> loadCategories() async {
@@ -178,29 +186,32 @@ class MarketplaceRepository {
   }
 
   Future<List<MarketplaceListing>> fetchBusinessListings(
-    String businessId,
-  ) async {
+    String businessId, {
+    bool includeHidden = false,
+  }) async {
+    var productsQuery = _client
+        .from('business_products')
+        .select(
+          'id, business_id, title, description, price_amount, currency, '
+          'cover_image_path, status, created_at, businesses!inner(id, name, '
+          'slug, owner_id, category_id, logo_path, status)',
+        )
+        .eq('business_id', businessId);
+    var servicesQuery = _client
+        .from('business_services')
+        .select(
+          'id, business_id, title, description, price_amount, currency, '
+          'cover_image_path, status, created_at, businesses!inner(id, name, '
+          'slug, owner_id, category_id, logo_path, status)',
+        )
+        .eq('business_id', businessId);
+    if (!includeHidden) {
+      productsQuery = productsQuery.eq('status', 'available');
+      servicesQuery = servicesQuery.eq('status', 'available');
+    }
     final results = await Future.wait([
-      _client
-          .from('business_products')
-          .select(
-            'id, business_id, title, description, price_amount, currency, '
-            'cover_image_path, created_at, businesses!inner(id, name, slug, '
-            'owner_id, category_id, logo_path, status)',
-          )
-          .eq('business_id', businessId)
-          .eq('status', 'available')
-          .order('created_at', ascending: false),
-      _client
-          .from('business_services')
-          .select(
-            'id, business_id, title, description, price_amount, currency, '
-            'cover_image_path, created_at, businesses!inner(id, name, slug, '
-            'owner_id, category_id, logo_path, status)',
-          )
-          .eq('business_id', businessId)
-          .eq('status', 'available')
-          .order('created_at', ascending: false),
+      productsQuery.order('created_at', ascending: false),
+      servicesQuery.order('created_at', ascending: false),
     ]);
     final listings = <MarketplaceListing>[
       ...(results[0] as List).map(
@@ -335,6 +346,93 @@ class MarketplaceRepository {
     });
   }
 
+  Future<void> updateOffer({
+    required String listingId,
+    required bool isProduct,
+    required String businessId,
+    required String title,
+    required String description,
+    required double? price,
+    String? status,
+    Uint8List? imageBytes,
+  }) async {
+    final changes = <String, Object?>{
+      'title': title.trim(),
+      'description': _emptyToNull(description),
+      'price_amount': price,
+      'status': ?status,
+    };
+    if (imageBytes != null) {
+      changes['cover_image_path'] = await _uploadBusinessImage(
+        businessId: businessId,
+        bytes: imageBytes,
+      );
+    }
+    final table = isProduct ? 'business_products' : 'business_services';
+    await _client.from(table).update(changes).eq('id', listingId);
+  }
+
+  Future<void> setOfferStatus({
+    required String listingId,
+    required bool isProduct,
+    required String status,
+  }) async {
+    if (!_offerStatuses.contains(status)) {
+      throw const InvalidBusinessOfferException();
+    }
+    final table = isProduct ? 'business_products' : 'business_services';
+    await _client.from(table).update({'status': status}).eq('id', listingId);
+  }
+
+  Future<void> deleteOffer({
+    required String listingId,
+    required bool isProduct,
+  }) async {
+    final table = isProduct ? 'business_products' : 'business_services';
+    final row = await _client
+        .from(table)
+        .select('cover_image_path')
+        .eq('id', listingId)
+        .maybeSingle();
+    await _client.from(table).delete().eq('id', listingId);
+    final path = row?['cover_image_path'] as String?;
+    if (path != null && path.isNotEmpty) {
+      try {
+        await _client.storage.from('business-media').remove([path]);
+      } on Exception {
+        // Le fichier orphelin n'empêche pas la suppression de l'offre.
+      }
+    }
+  }
+
+  Future<void> updateBusinessStatus({
+    required String businessId,
+    required String status,
+  }) async {
+    if (status != 'draft' && status != 'published') {
+      throw const InvalidBusinessOfferException();
+    }
+    await _client
+        .from('businesses')
+        .update({'status': status})
+        .eq('id', businessId);
+  }
+
+  Future<void> updateBusinessDetails({
+    required String businessId,
+    required String name,
+    required String description,
+  }) async {
+    await _client
+        .from('businesses')
+        .update({'name': name.trim(), 'description': _emptyToNull(description)})
+        .eq('id', businessId);
+  }
+
+  Future<void> deleteReview(String reviewId) async {
+    await _client.from('reviews').delete().eq('id', reviewId);
+  }
+
   MarketplaceListing _listingFromRow(
     Map<String, dynamic> row, {
     required bool isProduct,
@@ -355,6 +453,7 @@ class MarketplaceRepository {
       priceAmount: amount?.toDouble(),
       currency: row['currency'] as String? ?? 'DZD',
       isProduct: isProduct,
+      status: row['status'] as String? ?? 'available',
       imageUrl: _publicUrl(
         'business-media',
         row['cover_image_path'] as String?,
@@ -418,6 +517,7 @@ class MarketplaceListing {
     required this.isProduct,
     required this.imageUrl,
     required this.createdAt,
+    this.status = 'available',
   });
 
   final String id;
@@ -432,6 +532,7 @@ class MarketplaceListing {
   final bool isProduct;
   final String? imageUrl;
   final DateTime createdAt;
+  final String status;
 }
 
 class BusinessRecord {
@@ -491,4 +592,8 @@ class InvalidBusinessImageException implements Exception {
 
 class InvalidBusinessReviewException implements Exception {
   const InvalidBusinessReviewException();
+}
+
+class InvalidBusinessOfferException implements Exception {
+  const InvalidBusinessOfferException();
 }

@@ -41,6 +41,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Future<void> _initialize() async {
     if (_conversationId != null) {
       _listenForMessages(_conversationId!);
+      await _markConversationRead(_conversationId!);
       return;
     }
     if (widget.recipientUserId == null || _isStartingConversation) return;
@@ -67,6 +68,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
+  Future<void> _markConversationRead(String conversationId) async {
+    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await ref
+          .read(messagingRepositoryProvider)
+          .markConversationRead(conversationId: conversationId, userId: userId);
+      ref.invalidate(inboxProvider);
+    } on Exception {
+      // La lecture est une optimisation : un échec ne doit pas bloquer le chat.
+    }
+  }
+
   void _listenForMessages(String conversationId) {
     final client = ref.read(supabaseClientProvider);
     _channel = client
@@ -84,6 +98,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             if (mounted) {
               ref.invalidate(conversationMessagesProvider(conversationId));
               ref.invalidate(inboxProvider);
+              unawaited(_markConversationRead(conversationId));
             }
           },
         )
@@ -93,6 +108,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (mounted) {
         ref.invalidate(conversationMessagesProvider(conversationId));
         ref.invalidate(inboxProvider);
+        unawaited(_markConversationRead(conversationId));
       }
     });
   }

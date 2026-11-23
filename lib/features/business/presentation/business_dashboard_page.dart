@@ -62,7 +62,8 @@ class BusinessDashboardPage extends ConsumerWidget {
             ),
           );
         }
-        final offers = ref.watch(businessListingsProvider(record.id));
+        final offers = ref.watch(manageBusinessListingsProvider(record.id));
+        final reviews = ref.watch(businessReviewsProvider(record.id));
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -106,15 +107,33 @@ class BusinessDashboardPage extends ConsumerWidget {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         Text(
-                          record.status == 'published'
-                              ? 'Vitrine publiée'
-                              : 'Brouillon',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          _businessStatusLabel(record.status),
+                          style: TextStyle(
+                            color: record.status == 'published'
+                                ? AppColors.success
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Modifier les informations',
+                    onPressed: () async {
+                      final updated = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => _BusinessDetailsDialog(
+                          businessId: record.id,
+                          initialName: record.name,
+                          initialDescription: record.description,
+                        ),
+                      );
+                      if (updated == true) {
+                        ref.invalidate(myBusinessProvider(ownerId));
+                        ref.invalidate(businessProvider(record.id));
+                      }
+                    },
+                    icon: const Icon(Icons.edit_outlined),
                   ),
                   IconButton(
                     tooltip: 'Personnaliser la vitrine',
@@ -133,13 +152,24 @@ class BusinessDashboardPage extends ConsumerWidget {
                   ),
                   IconButton(
                     tooltip: 'Ajouter une offre',
-                    onPressed: () => _addOffer(context, ref, record.id),
+                    onPressed: () =>
+                        _openOfferDialog(context, ref, businessId: record.id),
                     icon: const Icon(Icons.add_circle_outline),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            _BusinessVisibilityCard(
+              status: record.status,
+              onToggle: () => _toggleBusinessStatus(context, ref, record),
+            ),
+            const SizedBox(height: 16),
+            _Statistics(
+              offers: offers.asData?.value ?? const [],
+              reviews: reviews.asData?.value ?? const [],
+            ),
+            const SizedBox(height: 22),
             Row(
               children: [
                 Expanded(
@@ -149,7 +179,8 @@ class BusinessDashboardPage extends ConsumerWidget {
                   ),
                 ),
                 FilledButton.tonalIcon(
-                  onPressed: () => _addOffer(context, ref, record.id),
+                  onPressed: () =>
+                      _openOfferDialog(context, ref, businessId: record.id),
                   icon: const Icon(Icons.add),
                   label: const Text('Ajouter'),
                 ),
@@ -161,7 +192,7 @@ class BusinessDashboardPage extends ConsumerWidget {
               error: (error, stackTrace) => _DashboardMessage(
                 message: 'Impossible de charger vos offres.',
                 onRetry: () =>
-                    ref.invalidate(businessListingsProvider(record.id)),
+                    ref.invalidate(manageBusinessListingsProvider(record.id)),
               ),
               data: (items) => items.isEmpty
                   ? const Padding(
@@ -184,17 +215,66 @@ class BusinessDashboardPage extends ConsumerWidget {
                                 crossAxisCount: columns,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 12,
-                                childAspectRatio: columns == 2 ? 0.72 : 0.78,
+                                childAspectRatio: columns == 2 ? 0.68 : 0.74,
                               ),
-                          itemBuilder: (context, index) => MarketplaceListingCard(
+                          itemBuilder: (context, index) => _ManagedOfferCard(
+                            businessId: record.id,
                             listing: items[index],
-                            onTap: () => context.go(
-                              '/marketplace/item/${items[index].id}'
-                              '?kind=${items[index].isProduct ? 'product' : 'service'}',
+                            onEdit: () => _openOfferDialog(
+                              context,
+                              ref,
+                              businessId: record.id,
+                              listing: items[index],
                             ),
+                            onToggle: () =>
+                                _toggleOffer(context, ref, items[index]),
+                            onDelete: () =>
+                                _deleteOffer(context, ref, items[index]),
                           ),
                         );
                       },
+                    ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Avis reçus',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () =>
+                      ref.invalidate(businessReviewsProvider(record.id)),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Actualiser'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            reviews.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stackTrace) => _DashboardMessage(
+                message: 'Impossible de charger les avis.',
+                onRetry: () =>
+                    ref.invalidate(businessReviewsProvider(record.id)),
+              ),
+              data: (items) => items.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: Text('Aucun avis pour le moment.')),
+                    )
+                  : Column(
+                      children: [
+                        for (final review in items) ...[
+                          _ManagedReviewCard(
+                            review: review,
+                            onDelete: () => _deleteReview(context, ref, review),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ],
                     ),
             ),
           ],
@@ -203,40 +283,508 @@ class BusinessDashboardPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _addOffer(
+  Future<void> _openOfferDialog(
     BuildContext context,
-    WidgetRef ref,
-    String businessId,
-  ) async {
-    final created = await showDialog<bool>(
+    WidgetRef ref, {
+    required String businessId,
+    MarketplaceListing? listing,
+  }) async {
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => _AddOfferDialog(businessId: businessId),
+      builder: (context) =>
+          _OfferDialog(businessId: businessId, listing: listing),
     );
-    if (created == true) {
+    if (saved == true) {
+      ref.invalidate(manageBusinessListingsProvider(businessId));
       ref.invalidate(businessListingsProvider(businessId));
       ref.invalidate(marketplaceListingsProvider);
     }
   }
+
+  Future<void> _toggleOffer(
+    BuildContext context,
+    WidgetRef ref,
+    MarketplaceListing listing,
+  ) async {
+    final nextStatus = listing.status == 'available'
+        ? 'unavailable'
+        : 'available';
+    try {
+      await ref
+          .read(marketplaceRepositoryProvider)
+          .setOfferStatus(
+            listingId: listing.id,
+            isProduct: listing.isProduct,
+            status: nextStatus,
+          );
+      ref.invalidate(manageBusinessListingsProvider(listing.businessId));
+      ref.invalidate(businessListingsProvider(listing.businessId));
+      ref.invalidate(marketplaceListingsProvider);
+    } on Exception {
+      if (context.mounted) {
+        _showMessage(
+          context,
+          'Impossible de modifier la visibilité de cette offre.',
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteOffer(
+    BuildContext context,
+    WidgetRef ref,
+    MarketplaceListing listing,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer l’offre ?'),
+        content: Text(
+          '« ${listing.title} » sera définitivement retirée de votre vitrine.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref
+          .read(marketplaceRepositoryProvider)
+          .deleteOffer(listingId: listing.id, isProduct: listing.isProduct);
+      ref.invalidate(manageBusinessListingsProvider(listing.businessId));
+      ref.invalidate(businessListingsProvider(listing.businessId));
+      ref.invalidate(marketplaceListingsProvider);
+      if (context.mounted) _showMessage(context, 'Offre supprimée.');
+    } on Exception {
+      if (context.mounted) {
+        _showMessage(context, 'Impossible de supprimer cette offre.');
+      }
+    }
+  }
+
+  Future<void> _deleteReview(
+    BuildContext context,
+    WidgetRef ref,
+    BusinessReview review,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer cet avis ?'),
+        content: Text(
+          'L’avis de ${review.reviewerName} sera retiré de votre vitrine.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(marketplaceRepositoryProvider).deleteReview(review.id);
+      ref.invalidate(businessReviewsProvider);
+      if (context.mounted) _showMessage(context, 'Avis supprimé.');
+    } on Exception {
+      if (context.mounted) {
+        _showMessage(context, 'Impossible de supprimer cet avis.');
+      }
+    }
+  }
+
+  Future<void> _toggleBusinessStatus(
+    BuildContext context,
+    WidgetRef ref,
+    BusinessRecord record,
+  ) async {
+    if (record.status != 'published' && record.status != 'draft') {
+      _showMessage(context, 'Cette vitrine est contrôlée par la modération.');
+      return;
+    }
+    final nextStatus = record.status == 'published' ? 'draft' : 'published';
+    try {
+      await ref
+          .read(marketplaceRepositoryProvider)
+          .updateBusinessStatus(businessId: record.id, status: nextStatus);
+      ref.invalidate(myBusinessProvider(record.ownerId));
+      ref.invalidate(businessProvider(record.id));
+      ref.invalidate(marketplaceListingsProvider);
+      if (context.mounted) {
+        _showMessage(
+          context,
+          nextStatus == 'published'
+              ? 'Votre vitrine est publiée.'
+              : 'Votre vitrine est en pause : elle n’apparaît plus dans le marketplace.',
+        );
+      }
+    } on Exception {
+      if (context.mounted) {
+        _showMessage(context, 'Impossible de modifier la visibilité.');
+      }
+    }
+  }
+
+  void _showMessage(BuildContext context, String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 }
 
-class _AddOfferDialog extends ConsumerStatefulWidget {
-  const _AddOfferDialog({required this.businessId});
+String _businessStatusLabel(String status) {
+  return switch (status) {
+    'published' => 'Vitrine publiée',
+    'suspended' => 'Vitrine suspendue par la modération',
+    'archived' => 'Vitrine archivée',
+    _ => 'Brouillon',
+  };
+}
 
-  final String businessId;
+String _offerStatusLabel(String status) {
+  return switch (status) {
+    'unavailable' => 'En pause',
+    'reserved' => 'Réservée',
+    'closed' => 'Fermée',
+    'archived' => 'Archivée',
+    _ => 'Publiée',
+  };
+}
+
+Color _offerStatusColor(String status) {
+  return switch (status) {
+    'unavailable' => AppColors.warning,
+    'closed' || 'archived' => AppColors.textSecondary,
+    'reserved' => AppColors.info,
+    _ => AppColors.success,
+  };
+}
+
+class _BusinessVisibilityCard extends StatelessWidget {
+  const _BusinessVisibilityCard({required this.status, required this.onToggle});
+
+  final String status;
+  final VoidCallback onToggle;
 
   @override
-  ConsumerState<_AddOfferDialog> createState() => _AddOfferDialogState();
+  Widget build(BuildContext context) {
+    final isPublished = status == 'published';
+    final isModerated = status == 'suspended' || status == 'archived';
+    return SocialCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(
+            isPublished
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+            color: isPublished ? AppColors.success : AppColors.textSecondary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              isPublished
+                  ? 'Votre vitrine est visible dans le marketplace.'
+                  : 'Votre vitrine est masquée du marketplace.',
+            ),
+          ),
+          FilledButton.tonal(
+            onPressed: isModerated ? null : onToggle,
+            child: Text(isPublished ? 'Mettre en pause' : 'Publier'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _AddOfferDialogState extends ConsumerState<_AddOfferDialog> {
+class _Statistics extends StatelessWidget {
+  const _Statistics({required this.offers, required this.reviews});
+
+  final List<MarketplaceListing> offers;
+  final List<BusinessReview> reviews;
+
+  @override
+  Widget build(BuildContext context) {
+    final published = offers
+        .where((offer) => offer.status == 'available')
+        .length;
+    final paused = offers.length - published;
+    final average = reviews.isEmpty
+        ? null
+        : reviews.fold<int>(0, (sum, review) => sum + review.rating) /
+              reviews.length;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth > 560 ? 4 : 2;
+        return GridView.count(
+          crossAxisCount: columns,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: columns == 4 ? 1.9 : 1.6,
+          children: [
+            _StatCard(
+              icon: Icons.inventory_2_outlined,
+              label: 'Offres publiées',
+              value: '$published',
+            ),
+            _StatCard(
+              icon: Icons.pause_circle_outline,
+              label: 'Offres en pause',
+              value: '$paused',
+            ),
+            _StatCard(
+              icon: Icons.rate_review_outlined,
+              label: 'Avis reçus',
+              value: '${reviews.length}',
+            ),
+            _StatCard(
+              icon: Icons.star_outline,
+              label: 'Note moyenne',
+              value: average == null ? '—' : average.toStringAsFixed(1),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SocialCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 20, color: AppColors.secondary),
+          const SizedBox(height: 6),
+          Text(value, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManagedOfferCard extends StatelessWidget {
+  const _ManagedOfferCard({
+    required this.businessId,
+    required this.listing,
+    required this.onEdit,
+    required this.onToggle,
+    required this.onDelete,
+  });
+
+  final String businessId;
+  final MarketplaceListing listing;
+  final VoidCallback onEdit;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAvailable = listing.status == 'available';
+    return Stack(
+      children: [
+        MarketplaceListingCard(
+          listing: listing,
+          onTap: () => context.go(
+            '/marketplace/item/${listing.id}'
+            '?kind=${listing.isProduct ? 'product' : 'service'}',
+          ),
+        ),
+        Positioned(
+          top: 6,
+          right: 6,
+          child: Material(
+            color: AppColors.surface.withValues(alpha: 0.9),
+            shape: const CircleBorder(),
+            child: PopupMenuButton<String>(
+              tooltip: 'Gérer l’offre',
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) {
+                switch (value) {
+                  case 'edit':
+                    onEdit();
+                  case 'toggle':
+                    onToggle();
+                  case 'delete':
+                    onDelete();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: ListTile(
+                    dense: true,
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Modifier'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'toggle',
+                  child: ListTile(
+                    dense: true,
+                    leading: Icon(
+                      isAvailable
+                          ? Icons.pause_outlined
+                          : Icons.play_arrow_outlined,
+                    ),
+                    title: Text(isAvailable ? 'Mettre en pause' : 'Republier'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    dense: true,
+                    leading: Icon(Icons.delete_outline),
+                    title: Text('Supprimer'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (!isAvailable)
+          Positioned(
+            left: 8,
+            top: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _offerStatusColor(listing.status),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _offerStatusLabel(listing.status),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ManagedReviewCard extends StatelessWidget {
+  const _ManagedReviewCard({required this.review, required this.onDelete});
+
+  final BusinessReview review;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return SocialCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  review.reviewerName,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Text(
+                '${review.rating}/5',
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Supprimer l’avis',
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, size: 20),
+              ),
+            ],
+          ),
+          if (review.comment.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(review.comment),
+            ),
+          const SizedBox(height: 6),
+          Text(
+            '${review.createdAt.day.toString().padLeft(2, '0')}/'
+            '${review.createdAt.month.toString().padLeft(2, '0')}/'
+            '${review.createdAt.year}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfferDialog extends ConsumerStatefulWidget {
+  const _OfferDialog({required this.businessId, this.listing});
+
+  final String businessId;
+  final MarketplaceListing? listing;
+
+  @override
+  ConsumerState<_OfferDialog> createState() => _OfferDialogState();
+}
+
+class _OfferDialogState extends ConsumerState<_OfferDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _priceController = TextEditingController();
+  late final _titleController = TextEditingController(
+    text: widget.listing?.title ?? '',
+  );
+  late final _descriptionController = TextEditingController(
+    text: widget.listing?.description ?? '',
+  );
+  late final _priceController = TextEditingController(
+    text: widget.listing?.priceAmount == null
+        ? ''
+        : widget.listing!.priceAmount!.toStringAsFixed(2),
+  );
   Uint8List? _imageBytes;
-  bool _isProduct = true;
+  late bool _isProduct = widget.listing?.isProduct ?? true;
   bool _isSubmitting = false;
   bool _isPicking = false;
+
+  bool get _isEditing => widget.listing != null;
 
   @override
   void dispose() {
@@ -274,16 +822,27 @@ class _AddOfferDialogState extends ConsumerState<_AddOfferDialog> {
     final price = rawPrice.isEmpty ? null : double.tryParse(rawPrice);
     setState(() => _isSubmitting = true);
     try {
-      await ref
-          .read(marketplaceRepositoryProvider)
-          .addOffer(
-            businessId: widget.businessId,
-            title: _titleController.text,
-            description: _descriptionController.text,
-            price: price,
-            isProduct: _isProduct,
-            imageBytes: _imageBytes,
-          );
+      final repository = ref.read(marketplaceRepositoryProvider);
+      if (_isEditing) {
+        await repository.updateOffer(
+          listingId: widget.listing!.id,
+          isProduct: widget.listing!.isProduct,
+          businessId: widget.businessId,
+          title: _titleController.text,
+          description: _descriptionController.text,
+          price: price,
+          imageBytes: _imageBytes,
+        );
+      } else {
+        await repository.addOffer(
+          businessId: widget.businessId,
+          title: _titleController.text,
+          description: _descriptionController.text,
+          price: price,
+          isProduct: _isProduct,
+          imageBytes: _imageBytes,
+        );
+      }
       if (mounted) Navigator.of(context).pop(true);
     } on StorageException catch (error) {
       debugPrint(
@@ -302,7 +861,11 @@ class _AddOfferDialogState extends ConsumerState<_AddOfferDialog> {
     } on InvalidBusinessImageException {
       _message('L’image doit être JPEG ou PNG et faire 5 Mo maximum.');
     } on Exception {
-      _message('Impossible d’ajouter cette offre. Réessayez.');
+      _message(
+        _isEditing
+            ? 'Impossible de modifier cette offre. Réessayez.'
+            : 'Impossible d’ajouter cette offre. Réessayez.',
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -333,7 +896,7 @@ class _AddOfferDialogState extends ConsumerState<_AddOfferDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Ajouter une offre'),
+      title: Text(_isEditing ? 'Modifier l’offre' : 'Ajouter une offre'),
       content: SizedBox(
         width: 460,
         child: Form(
@@ -342,18 +905,30 @@ class _AddOfferDialogState extends ConsumerState<_AddOfferDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<bool>(
-                  initialValue: _isProduct,
-                  decoration: const InputDecoration(labelText: 'Type d’offre'),
-                  items: const [
-                    DropdownMenuItem(value: true, child: Text('Produit')),
-                    DropdownMenuItem(value: false, child: Text('Service')),
-                  ],
-                  onChanged: _isSubmitting
-                      ? null
-                      : (value) => setState(() => _isProduct = value ?? true),
-                ),
-                const SizedBox(height: 12),
+                if (!_isEditing) ...[
+                  DropdownButtonFormField<bool>(
+                    initialValue: _isProduct,
+                    decoration: const InputDecoration(
+                      labelText: 'Type d’offre',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: true, child: Text('Produit')),
+                      DropdownMenuItem(value: false, child: Text('Service')),
+                    ],
+                    onChanged: _isSubmitting
+                        ? null
+                        : (value) => setState(() => _isProduct = value ?? true),
+                  ),
+                  const SizedBox(height: 12),
+                ] else
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Chip(
+                      label: Text(
+                        widget.listing!.isProduct ? 'Produit' : 'Service',
+                      ),
+                    ),
+                  ),
                 TextFormField(
                   controller: _titleController,
                   maxLength: 120,
@@ -397,7 +972,11 @@ class _AddOfferDialogState extends ConsumerState<_AddOfferDialog> {
                   onPressed: _isPicking || _isSubmitting ? null : _pickImage,
                   icon: const Icon(Icons.image_outlined),
                   label: Text(
-                    _imageBytes == null ? 'Ajouter une image' : 'Changer',
+                    _imageBytes == null
+                        ? (_isEditing
+                              ? 'Remplacer l’image'
+                              : 'Ajouter une image')
+                        : 'Changer',
                   ),
                 ),
                 const Text(
@@ -418,10 +997,115 @@ class _AddOfferDialogState extends ConsumerState<_AddOfferDialog> {
           child: const Text('Annuler'),
         ),
         PrimaryButton(
-          label: 'Enregistrer',
+          label: _isEditing ? 'Mettre à jour' : 'Enregistrer',
           isLoading: _isSubmitting,
           expand: false,
           onPressed: _submit,
+        ),
+      ],
+    );
+  }
+}
+
+class _BusinessDetailsDialog extends ConsumerStatefulWidget {
+  const _BusinessDetailsDialog({
+    required this.businessId,
+    required this.initialName,
+    required this.initialDescription,
+  });
+
+  final String businessId;
+  final String initialName;
+  final String initialDescription;
+
+  @override
+  ConsumerState<_BusinessDetailsDialog> createState() =>
+      _BusinessDetailsDialogState();
+}
+
+class _BusinessDetailsDialogState
+    extends ConsumerState<_BusinessDetailsDialog> {
+  late final _nameController = TextEditingController(text: widget.initialName);
+  late final _descriptionController = TextEditingController(
+    text: widget.initialDescription,
+  );
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.length < 2) {
+      _message('Le nom doit contenir au moins 2 caractères.');
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      await ref
+          .read(marketplaceRepositoryProvider)
+          .updateBusinessDetails(
+            businessId: widget.businessId,
+            name: name,
+            description: _descriptionController.text,
+          );
+      if (mounted) Navigator.of(context).pop(true);
+    } on Exception {
+      _message('Impossible de mettre à jour la vitrine.');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _message(String value) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(value)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Informations de la vitrine'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              maxLength: 80,
+              decoration: const InputDecoration(labelText: 'Nom'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descriptionController,
+              minLines: 3,
+              maxLines: 6,
+              maxLength: 600,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        PrimaryButton(
+          label: 'Enregistrer',
+          isLoading: _isSaving,
+          expand: false,
+          onPressed: _save,
         ),
       ],
     );

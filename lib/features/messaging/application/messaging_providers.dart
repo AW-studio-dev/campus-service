@@ -15,6 +15,14 @@ final inboxProvider = FutureProvider<List<InboxConversation>>((ref) {
   return ref.watch(messagingRepositoryProvider).fetchInbox(userId);
 });
 
+final unreadMessagesCountProvider = FutureProvider<int>((ref) async {
+  final conversations = await ref.watch(inboxProvider.future);
+  return conversations.fold<int>(
+    0,
+    (total, conversation) => total + conversation.unreadCount,
+  );
+});
+
 final conversationMessagesProvider =
     FutureProvider.family<List<ChatMessage>, String>((ref, conversationId) {
       return ref

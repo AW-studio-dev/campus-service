@@ -23,12 +23,18 @@ class MessagingRepository {
   Future<List<InboxConversation>> fetchInbox(String currentUserId) async {
     final membershipRows = await _client
         .from('conversation_members')
-        .select('conversation_id')
+        .select('conversation_id, last_read_at')
         .eq('user_id', currentUserId);
     final ids = membershipRows
         .map((row) => row['conversation_id'] as String)
         .toList();
     if (ids.isEmpty) return const [];
+    final lastReadByConversation = {
+      for (final row in membershipRows)
+        row['conversation_id'] as String: DateTime.tryParse(
+          row['last_read_at'] as String? ?? '',
+        ),
+    };
 
     final results = await Future.wait([
       _client
@@ -43,14 +49,26 @@ class MessagingRepository {
           .select('conversation_id, sender_id, body, created_at')
           .inFilter('conversation_id', ids)
           .order('created_at', ascending: false)
-          .limit(1000),
+          .limit(5000),
     ]);
     final messageByConversation = <String, Map<String, dynamic>>{};
+    final unreadByConversation = <String, int>{};
     for (final message in results[1]) {
-      messageByConversation.putIfAbsent(
-        message['conversation_id'] as String,
-        () => message,
+      final conversationId = message['conversation_id'] as String;
+      messageByConversation.putIfAbsent(conversationId, () => message);
+      if (message['sender_id'] == currentUserId) continue;
+      final createdAt = DateTime.tryParse(
+        message['created_at'] as String? ?? '',
       );
+      final lastReadAt = lastReadByConversation[conversationId];
+      if (createdAt == null) continue;
+      if (lastReadAt == null || createdAt.isAfter(lastReadAt)) {
+        unreadByConversation.update(
+          conversationId,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
+      }
     }
 
     final items = <InboxConversation>[];
@@ -79,6 +97,7 @@ class MessagingRepository {
           lastMessageAt: DateTime.tryParse(
             message?['created_at'] as String? ?? '',
           ),
+          unreadCount: unreadByConversation[conversationId] ?? 0,
         ),
       );
     }
@@ -90,6 +109,17 @@ class MessagingRepository {
       return bDate.compareTo(aDate);
     });
     return items;
+  }
+
+  Future<void> markConversationRead({
+    required String conversationId,
+    required String userId,
+  }) async {
+    await _client
+        .from('conversation_members')
+        .update({'last_read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('conversation_id', conversationId)
+        .eq('user_id', userId);
   }
 
   Future<List<ChatMessage>> fetchMessages(String conversationId) async {
@@ -160,6 +190,7 @@ class InboxConversation {
     required this.avatarUrl,
     required this.lastMessage,
     required this.lastMessageAt,
+    this.unreadCount = 0,
   });
 
   final String id;
@@ -168,6 +199,7 @@ class InboxConversation {
   final String? avatarUrl;
   final String lastMessage;
   final DateTime? lastMessageAt;
+  final int unreadCount;
 }
 
 class ChatMessage {

@@ -20,6 +20,7 @@ class ProfileRepository {
         .from('profiles')
         .select(
           'id, display_name, avatar_path, bio, created_at, '
+          'wilaya_id, university_id, study_level_id, study_field_id, '
           'wilayas(name_fr), universities(name), study_levels(name_fr)',
         )
         .eq('id', profileId)
@@ -43,14 +44,24 @@ class ProfileRepository {
     ]);
 
     var isFollowing = false;
+    var isBlockedByViewer = false;
     if (viewerId != null && viewerId != profileId) {
-      final relation = await _client
-          .from('follows')
-          .select('follower_id')
-          .eq('follower_id', viewerId)
-          .eq('following_id', profileId)
-          .maybeSingle();
-      isFollowing = relation != null;
+      final relations = await Future.wait([
+        _client
+            .from('follows')
+            .select('follower_id')
+            .eq('follower_id', viewerId)
+            .eq('following_id', profileId)
+            .maybeSingle(),
+        _client
+            .from('user_blocks')
+            .select('blocked_id')
+            .eq('blocker_id', viewerId)
+            .eq('blocked_id', profileId)
+            .maybeSingle(),
+      ]);
+      isFollowing = relations[0] != null;
+      isBlockedByViewer = relations[1] != null;
     }
 
     final rawWilaya = row['wilayas'];
@@ -74,6 +85,11 @@ class ProfileRepository {
       followersCount: results[0].length,
       followingCount: results[1].length,
       isFollowing: isFollowing,
+      isBlockedByViewer: isBlockedByViewer,
+      wilayaId: row['wilaya_id'] as int?,
+      universityId: row['university_id'] as int?,
+      studyLevelId: row['study_level_id'] as int?,
+      studyFieldId: row['study_field_id'] as int?,
     );
   }
 
@@ -104,11 +120,41 @@ class ProfileRepository {
     }
   }
 
+  Future<void> setBlocked({
+    required String blockerId,
+    required String blockedId,
+    required bool isBlocked,
+  }) async {
+    if (blockerId == blockedId) throw const InvalidFollowException();
+    final existing = await _client
+        .from('user_blocks')
+        .select('blocked_id')
+        .eq('blocker_id', blockerId)
+        .eq('blocked_id', blockedId)
+        .maybeSingle();
+    if (isBlocked && existing == null) {
+      await _client.from('user_blocks').insert({
+        'blocker_id': blockerId,
+        'blocked_id': blockedId,
+      });
+    } else if (!isBlocked && existing != null) {
+      await _client
+          .from('user_blocks')
+          .delete()
+          .eq('blocker_id', blockerId)
+          .eq('blocked_id', blockedId);
+    }
+  }
+
   Future<void> updateProfile({
     required String userId,
     required String displayName,
     required String bio,
     Uint8List? avatarBytes,
+    int? wilayaId,
+    int? universityId,
+    int? studyLevelId,
+    int? studyFieldId,
   }) async {
     String? avatarPath;
     if (avatarBytes != null) {
@@ -130,6 +176,10 @@ class ProfileRepository {
     final updates = <String, Object?>{
       'display_name': displayName.trim(),
       'bio': bio.trim().isEmpty ? null : bio.trim(),
+      'wilaya_id': wilayaId,
+      'university_id': universityId,
+      'study_level_id': studyLevelId,
+      'study_field_id': studyFieldId,
     };
     if (avatarPath != null) updates['avatar_path'] = avatarPath;
     await _client.from('profiles').update(updates).eq('id', userId);
@@ -155,6 +205,11 @@ class ProfileRecord {
     required this.followersCount,
     required this.followingCount,
     required this.isFollowing,
+    this.isBlockedByViewer = false,
+    this.wilayaId,
+    this.universityId,
+    this.studyLevelId,
+    this.studyFieldId,
   });
 
   final String id;
@@ -168,6 +223,11 @@ class ProfileRecord {
   final int followersCount;
   final int followingCount;
   final bool isFollowing;
+  final bool isBlockedByViewer;
+  final int? wilayaId;
+  final int? universityId;
+  final int? studyLevelId;
+  final int? studyFieldId;
 }
 
 class InvalidFollowException implements Exception {

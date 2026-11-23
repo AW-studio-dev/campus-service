@@ -10,3 +10,10 @@ final serviceRequestRepositoryProvider = Provider<ServiceRequestRepository>(
 final serviceRequestOptionsProvider = FutureProvider<ServiceRequestOptions>(
   (ref) => ref.watch(serviceRequestRepositoryProvider).loadOptions(),
 );
+
+final myServiceRequestsProvider =
+    FutureProvider.family<List<ServiceRequestSummary>, String>((ref, authorId) {
+      return ref
+          .watch(serviceRequestRepositoryProvider)
+          .fetchMyRequests(authorId);
+    });

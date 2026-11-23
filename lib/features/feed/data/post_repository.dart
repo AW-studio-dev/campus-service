@@ -16,9 +16,18 @@ class PostRepository {
     required String currentUserId,
     String? authorId,
     List<String>? onlyPostIds,
+    bool personalized = false,
   }) async {
     if (onlyPostIds != null && onlyPostIds.isEmpty) return const [];
     final includeSponsored = authorId == null && onlyPostIds == null;
+    final blockedIds = await _fetchBlockedIds(currentUserId);
+    final personalizedAuthorIds = personalized && authorId == null
+        ? await _fetchPersonalizedAuthorIds(
+            currentUserId: currentUserId,
+            blockedIds: blockedIds,
+          )
+        : const <String>[];
+
     var query = _client
         .from('posts')
         .select(
@@ -36,9 +45,15 @@ class PostRepository {
     if (onlyPostIds != null) {
       query = query.inFilter('id', onlyPostIds);
     }
+    if (personalizedAuthorIds.isNotEmpty) {
+      query = query.inFilter('author_id', personalizedAuthorIds);
+    }
     final normalRows = await query
         .order('created_at', ascending: false)
         .limit(50);
+    normalRows.removeWhere(
+      (row) => blockedIds.contains(row['author_id'] as String?),
+    );
 
     final sponsoredCampaignRows = includeSponsored
         ? await _fetchLiveSponsoredCampaignRows()
@@ -158,6 +173,60 @@ class PostRepository {
         destinationUrl: sponsoredCampaign?['destination_url'] as String?,
       );
     }).toList();
+  }
+
+  Future<Set<String>> _fetchBlockedIds(String currentUserId) async {
+    final rows = await _client
+        .from('user_blocks')
+        .select('blocked_id')
+        .eq('blocker_id', currentUserId);
+    return rows.map((row) => row['blocked_id'] as String).toSet();
+  }
+
+  /// Construit la liste des auteurs visibles dans le fil personnel :
+  /// les abonnements, l'utilisateur lui-même, puis les membres qui partagent
+  /// au moins un centre d'intérêt. Une liste vide signifie "fil global".
+  Future<List<String>> _fetchPersonalizedAuthorIds({
+    required String currentUserId,
+    required Set<String> blockedIds,
+  }) async {
+    final authorIds = <String>{currentUserId};
+
+    final followedRows = await _client
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', currentUserId);
+    authorIds.addAll(
+      followedRows
+          .map((row) => row['following_id'] as String)
+          .where((id) => !blockedIds.contains(id)),
+    );
+
+    if (authorIds.length <= 1) {
+      final interestRows = await _client
+          .from('user_interests')
+          .select('interest_id')
+          .eq('user_id', currentUserId);
+      final interestIds = interestRows
+          .map((row) => row['interest_id'] as int)
+          .toList();
+      if (interestIds.isNotEmpty) {
+        final peerRows = await _client
+            .from('user_interests')
+            .select('user_id')
+            .inFilter('interest_id', interestIds)
+            .neq('user_id', currentUserId)
+            .limit(100);
+        authorIds.addAll(
+          peerRows
+              .map((row) => row['user_id'] as String)
+              .where((id) => !blockedIds.contains(id)),
+        );
+      }
+    }
+
+    if (authorIds.length <= 1) return const [];
+    return authorIds.toList();
   }
 
   Future<List<Map<String, dynamic>>> _fetchLiveSponsoredCampaignRows() async {

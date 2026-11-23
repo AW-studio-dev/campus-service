@@ -13,7 +13,9 @@ final feedPostsProvider = FutureProvider<List<FeedPost>>((ref) {
   if (userId == null) {
     throw StateError('Une session est nécessaire pour consulter le fil.');
   }
-  return ref.watch(postRepositoryProvider).fetchFeed(currentUserId: userId);
+  return ref
+      .watch(postRepositoryProvider)
+      .fetchFeed(currentUserId: userId, personalized: true);
 });
 
 final userPostsProvider = FutureProvider.family<List<FeedPost>, String>((

@@ -46,6 +46,14 @@ final businessListingsProvider =
           .fetchBusinessListings(businessId);
     });
 
+/// Toutes les offres du propriétaire, y compris celles mises en pause.
+final manageBusinessListingsProvider =
+    FutureProvider.family<List<MarketplaceListing>, String>((ref, businessId) {
+      return ref
+          .watch(marketplaceRepositoryProvider)
+          .fetchBusinessListings(businessId, includeHidden: true);
+    });
+
 final businessReviewsProvider =
     FutureProvider.family<List<BusinessReview>, String>((ref, businessId) {
       return ref

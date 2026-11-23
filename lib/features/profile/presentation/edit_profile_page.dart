@@ -10,6 +10,7 @@ import '../../../core/utils/image_upload_validation.dart';
 import '../../../shared/widgets/app_avatar.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/social_card.dart';
+import '../../auth/application/auth_providers.dart';
 import '../../feed/application/post_providers.dart';
 import '../application/profile_providers.dart';
 import '../data/profile_repository.dart';
@@ -55,6 +56,10 @@ class _EditProfileFormState extends ConsumerState<_EditProfileForm> {
     text: widget.profile.displayName,
   );
   late final _bioController = TextEditingController(text: widget.profile.bio);
+  late int? _wilayaId = widget.profile.wilayaId;
+  late int? _universityId = widget.profile.universityId;
+  late int? _studyLevelId = widget.profile.studyLevelId;
+  late int? _studyFieldId = widget.profile.studyFieldId;
   Uint8List? _avatarBytes;
   bool _isPicking = false;
   bool _isSaving = false;
@@ -109,6 +114,10 @@ class _EditProfileFormState extends ConsumerState<_EditProfileForm> {
             displayName: name,
             bio: bio,
             avatarBytes: _avatarBytes,
+            wilayaId: _wilayaId,
+            universityId: _universityId,
+            studyLevelId: _studyLevelId,
+            studyFieldId: _studyFieldId,
           );
       if (!mounted) return;
       ref.invalidate(profileProvider(widget.profile.id));
@@ -191,6 +200,18 @@ class _EditProfileFormState extends ConsumerState<_EditProfileForm> {
                   alignLabelWithHint: true,
                 ),
               ),
+              const SizedBox(height: 4),
+              const Divider(),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Parcours universitaire',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildAcademicFields(),
               const SizedBox(height: 16),
               PrimaryButton(
                 label: 'Enregistrer',
@@ -201,6 +222,105 @@ class _EditProfileFormState extends ConsumerState<_EditProfileForm> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAcademicFields() {
+    final options = ref.watch(onboardingOptionsProvider);
+    return options.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stackTrace) => TextButton(
+        onPressed: () => ref.invalidate(onboardingOptionsProvider),
+        child: const Text('Impossible de charger les options. Réessayer'),
+      ),
+      data: (data) {
+        final universities = data.universities
+            .where(
+              (university) =>
+                  _wilayaId == null || university.wilayaId == _wilayaId,
+            )
+            .toList();
+        final hasSelectedUniversity = universities.any(
+          (university) => university.id == _universityId,
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<int>(
+              initialValue: _wilayaId,
+              decoration: const InputDecoration(labelText: 'Wilaya'),
+              items: data.wilayas
+                  .map(
+                    (option) => DropdownMenuItem(
+                      value: option.id,
+                      child: Text(option.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isSaving
+                  ? null
+                  : (value) => setState(() {
+                      _wilayaId = value;
+                      _universityId = null;
+                    }),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              key: ValueKey('university-$_wilayaId'),
+              initialValue: hasSelectedUniversity ? _universityId : null,
+              decoration: const InputDecoration(labelText: 'Université'),
+              items: universities
+                  .map(
+                    (option) => DropdownMenuItem(
+                      value: option.id,
+                      child: Text(option.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isSaving
+                  ? null
+                  : (value) => setState(() => _universityId = value),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              initialValue: _studyLevelId,
+              decoration: const InputDecoration(labelText: 'Niveau d’études'),
+              items: data.studyLevels
+                  .map(
+                    (option) => DropdownMenuItem(
+                      value: option.id,
+                      child: Text(option.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isSaving
+                  ? null
+                  : (value) => setState(() => _studyLevelId = value),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              initialValue: _studyFieldId,
+              decoration: const InputDecoration(
+                labelText: 'Spécialité (facultatif)',
+              ),
+              items: data.studyFields
+                  .map(
+                    (option) => DropdownMenuItem(
+                      value: option.id,
+                      child: Text(option.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isSaving
+                  ? null
+                  : (value) => setState(() => _studyFieldId = value),
+            ),
+          ],
+        );
+      },
     );
   }
 
