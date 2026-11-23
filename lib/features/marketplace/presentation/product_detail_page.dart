@@ -173,6 +173,11 @@ class ProductDetailPage extends ConsumerWidget {
                                         .startDirectConversation(
                                           currentUserId: currentUserId,
                                           otherUserId: item.businessOwnerId,
+                                          listingId: item.id,
+                                          listingTitle: item.title,
+                                          listingType: item.isProduct
+                                              ? 'product'
+                                              : 'service',
                                         );
                                     if (context.mounted) {
                                       context.go('/chat/$conversationId');

@@ -76,6 +76,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           .read(messagingRepositoryProvider)
           .markConversationRead(conversationId: conversationId, userId: userId);
       ref.invalidate(inboxProvider);
+      ref.invalidate(unreadMessagesCountProvider);
     } on Exception {
       // La lecture est une optimisation : un échec ne doit pas bloquer le chat.
     }
@@ -179,6 +180,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final title = conversationId == null
         ? null
         : ref.watch(conversationTitleProvider(conversationId));
+    final conversationContext = conversationId == null
+        ? null
+        : ref.watch(conversationContextProvider(conversationId)).asData?.value;
     return Column(
       children: [
         Padding(
@@ -211,6 +215,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
         ),
         const Divider(height: 1),
+        if (conversationContext != null)
+          _ConversationContextBanner(info: conversationContext),
         Expanded(
           child: _isStartingConversation
               ? const Center(child: CircularProgressIndicator())
@@ -343,5 +349,64 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ),
       );
     });
+  }
+}
+
+class _ConversationContextBanner extends StatelessWidget {
+  const _ConversationContextBanner({required this.info});
+
+  final ConversationContext info;
+
+  @override
+  Widget build(BuildContext context) {
+    final isService = info.type == 'service';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isService ? Icons.handyman_outlined : Icons.shopping_bag_outlined,
+            size: 20,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'À propos de',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  info.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          if (info.listingId != null)
+            TextButton(
+              onPressed: () => context.go(
+                '/marketplace/item/${info.listingId}'
+                '?kind=${isService ? 'service' : 'product'}',
+              ),
+              child: const Text('Voir l’offre'),
+            ),
+        ],
+      ),
+    );
   }
 }

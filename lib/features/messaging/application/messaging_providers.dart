@@ -30,6 +30,13 @@ final conversationMessagesProvider =
           .fetchMessages(conversationId);
     });
 
+final conversationContextProvider =
+    FutureProvider.family<ConversationContext?, String>((ref, conversationId) {
+      return ref
+          .watch(messagingRepositoryProvider)
+          .fetchConversationContext(conversationId);
+    });
+
 final conversationTitleProvider = FutureProvider.family<String?, String>((
   ref,
   conversationId,

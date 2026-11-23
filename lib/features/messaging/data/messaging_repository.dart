@@ -8,16 +8,57 @@ class MessagingRepository {
   Future<String> startDirectConversation({
     required String currentUserId,
     required String otherUserId,
+    String? listingId,
+    String? listingTitle,
+    String? listingType,
   }) async {
     if (currentUserId == otherUserId) {
       throw const InvalidConversationException();
     }
 
-    final conversationId = await _client.rpc(
-      'create_direct_conversation',
-      params: {'p_other_user_id': otherUserId},
-    );
-    return conversationId as String;
+    try {
+      final conversationId = await _client.rpc(
+        'create_direct_conversation',
+        params: {
+          'p_other_user_id': otherUserId,
+          'p_listing_id': listingId,
+          'p_listing_title': listingTitle,
+          'p_listing_type': listingType,
+        },
+      );
+      return conversationId as String;
+    } on PostgrestException {
+      // Compatibilité tant que la migration de contexte d'offre n'est pas
+      // appliquée sur la base distante.
+      final conversationId = await _client.rpc(
+        'create_direct_conversation',
+        params: {'p_other_user_id': otherUserId},
+      );
+      return conversationId as String;
+    }
+  }
+
+  Future<ConversationContext?> fetchConversationContext(
+    String conversationId,
+  ) async {
+    try {
+      final row = await _client
+          .from('conversations')
+          .select('listing_id, listing_title, listing_type')
+          .eq('id', conversationId)
+          .maybeSingle();
+      if (row == null) return null;
+      final title = row['listing_title'] as String?;
+      if (title == null || title.trim().isEmpty) return null;
+      return ConversationContext(
+        listingId: row['listing_id'] as String?,
+        title: title,
+        type: row['listing_type'] as String?,
+      );
+    } on PostgrestException {
+      // Les colonnes n'existent pas encore : le chat reste utilisable.
+      return null;
+    }
   }
 
   Future<List<InboxConversation>> fetchInbox(String currentUserId) async {
@@ -115,9 +156,31 @@ class MessagingRepository {
     required String conversationId,
     required String userId,
   }) async {
+    try {
+      await _client.rpc(
+        'mark_conversation_read',
+        params: {'p_conversation_id': conversationId},
+      );
+      return;
+    } on PostgrestException {
+      // Repli si la fonction serveur n'est pas encore déployée.
+    }
+
+    // On se cale sur l'horodatage serveur du dernier message : cela évite
+    // qu'un décalage d'horloge client laisse des messages comptés comme non lus.
+    final latest = await _client
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    final latestAt = DateTime.tryParse(latest?['created_at'] as String? ?? '');
+    if (latestAt == null) return;
+
     await _client
         .from('conversation_members')
-        .update({'last_read_at': DateTime.now().toUtc().toIso8601String()})
+        .update({'last_read_at': latestAt.toUtc().toIso8601String()})
         .eq('conversation_id', conversationId)
         .eq('user_id', userId);
   }
@@ -214,6 +277,18 @@ class ChatMessage {
   final String senderId;
   final String body;
   final DateTime createdAt;
+}
+
+class ConversationContext {
+  const ConversationContext({
+    required this.listingId,
+    required this.title,
+    required this.type,
+  });
+
+  final String? listingId;
+  final String title;
+  final String? type;
 }
 
 class InvalidConversationException implements Exception {
